@@ -1,6 +1,6 @@
 from flask import Flask, render_template, request, session
 from flask_socketio import SocketIO, emit, join_room, leave_room, disconnect
-from flask_cors import CORS # NEU: Importiere die Sicherheits-Bibliothek
+from flask_cors import CORS
 import os
 import json
 import random
@@ -8,14 +8,21 @@ from datetime import datetime
 import time 
 
 app = Flask(__name__)
-CORS(app) # NEU: Erlaube normale Web-Anfragen von überall
+CORS(app) 
 app.config['SECRET_KEY'] = 'dein-super-geheimer-schluessel-fuer-sessions'
-# NEU: Erlaube Socket-Anfragen von überall
 socketio = SocketIO(app, cors_allowed_origins="*") 
 
 DATA_FILE = 'cosmochat_data_v2.json' 
+online_users = {} 
 
-online_users = {} # { 'user_id': {sid1, sid2} }
+# --- WICHTIGE ÄNDERUNG ---
+@app.route('/')
+def index():
+    # Statt nur "Server läuft" zu sagen,
+    # senden wir jetzt die ECHTE app (index.html)
+    # Flask sucht automatisch im Ordner "templates" nach dieser Datei.
+    return render_template('index.html')
+# --- ENDE ÄNDERUNG ---
 
 # --- Helper Function ---
 def get_friend_sids(my_id):
@@ -51,13 +58,6 @@ def generate_unique_id(existing_ids):
         new_id = str(random.randint(100000, 999999))
         if new_id not in existing_ids:
             return new_id
-
-# --- HTTP Route ---
-@app.route('/')
-def index():
-    # Diese Route wird von deiner lokalen index.html nicht verwendet,
-    # aber sie ist der Grund, warum du "Server läuft" auf Render siehst.
-    return "Der CosmoChat-Server ist online und läuft."
 
 # --- SocketIO Events ---
 
