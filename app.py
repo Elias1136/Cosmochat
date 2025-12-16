@@ -1,6 +1,6 @@
 from flask import Flask, render_template, request, session
 from flask_socketio import SocketIO, emit, join_room, leave_room, disconnect
-from flask_cors import CORS # <--- NEU: Importiere CORS (1/3)
+from flask_cors import CORS # <--- WICHTIG (1/3): Importiere CORS
 import os
 import json
 import random
@@ -8,9 +8,9 @@ from datetime import datetime
 import time 
 
 app = Flask(__name__)
-CORS(app) # <--- NEU: Erlaube Anfragen (2/3)
+CORS(app) # <--- WICHTIG (2/3): Erlaube HTTP/CORS Anfragen
 app.config['SECRET_KEY'] = 'dein-super-geheimer-schluessel-fuer-sessions'
-socketio = SocketIO(app, cors_allowed_origins="*") # <--- GEÄNDERT: Erlaube Socket-Verbindungen von überall (3/3)
+socketio = SocketIO(app, cors_allowed_origins="*") # <--- WICHTIG (3/3): Erlaube Socket-Verbindungen
 
 DATA_FILE = 'cosmochat_data_v2.json' 
 
@@ -51,7 +51,7 @@ def generate_unique_id(existing_ids):
         if new_id not in existing_ids:
             return new_id
 
-# --- HTTP Route (unverändert) ---
+# --- HTTP Route (Für das Anzeigen der App) ---
 @app.route('/')
 def index():
     return render_template('index.html')
@@ -118,7 +118,6 @@ def handle_user_connect(data):
         'requests': request_details
     })
 
-# --- NEUER EVENT-HANDLER ---
 @socketio.on('visibility_changed')
 def handle_visibility_changed(data):
     my_id = session.get('my_id')
@@ -137,7 +136,6 @@ def handle_visibility_changed(data):
         # Sag Freunden, dass du "online" bist
         for friend_sid in get_friend_sids(my_id):
             emit('friend_online', {'user_id': my_id}, room=friend_sid)
-# --- ENDE NEU ---
 
 @socketio.on('disconnect')
 def handle_disconnect():
@@ -150,7 +148,8 @@ def handle_disconnect():
         
         # Nur wenn es die *letzte* offene Verbindung war (z.B. letzter Tab)
         if not online_users[my_id]:
-            del online_users[my_id]
+            if my_id in online_users:
+                del online_users[my_id]
             print(f"User {my_id} ist jetzt KOMPLETT offline.")
             
             # Sende "offline" an alle Freunde
@@ -171,7 +170,6 @@ def handle_disconnect():
     session.pop('my_id', None)
     session.pop('sid', None)
 
-# ... (Alle anderen Events wie set_name, invite_friend, etc. bleiben unverändert) ...
 @socketio.on('set_name')
 def handle_set_name(data):
     my_id = session.get('my_id')
@@ -371,7 +369,6 @@ def handle_delete_message(payload):
             else:
                 emit('error_message', {'message': 'Du kannst nur deine eigenen Nachrichten löschen.'})
 
-# NEUER EVENT-HANDLER FÜR "BEARBEITEN"
 @socketio.on('edit_message')
 def handle_edit_message(payload):
     my_id = session.get('my_id')
@@ -418,7 +415,6 @@ def handle_edit_message(payload):
     }, room=room_id)
     
     print(f"User {my_id} hat Nachricht {msg_id} in Raum {room_id} bearbeitet.")
-# ENDE NEUER HANDLER
 
 if __name__ == '__main__':
     print(f"Starte CosmoChat Server auf http://0.0.0.0:5000")
