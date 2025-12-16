@@ -1,1 +1,5 @@
-web: gunicorn -k eventlet -w 1 app:app
+Flask
+flask_socketio
+gunicorn
+eventlet
+Flask-Cors
