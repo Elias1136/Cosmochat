@@ -3,534 +3,703 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>CosmoChat Enterprise</title>
+    <title>Globe Link | Connecting World Seamlessly</title>
     
-    <!-- Core Libraries -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+    <!-- Design Libraries -->
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;700&display=swap" rel="stylesheet">
+
+    <!-- Tailwind Config für Globe Link Farben -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Outfit', 'sans-serif'],
+                    },
+                    colors: {
+                        globe: {
+                            dark: '#050b14',
+                            panel: '#0f172a',
+                            accent: '#0ea5e9', // Blue from Logo
+                            success: '#10b981', // Green from Logo
+                            ai: '#a855f7' // Purple for Gemini
+                        }
+                    },
+                    animation: {
+                        'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+                        'float': 'float 6s ease-in-out infinite',
+                        'spin-slow': 'spin 15s linear infinite',
+                        'spin-reverse': 'spin-reverse 20s linear infinite',
+                    },
+                    keyframes: {
+                        float: {
+                            '0%, 100%': { transform: 'translateY(0)' },
+                            '50%': { transform: 'translateY(-10px)' },
+                        },
+                        'spin-reverse': {
+                            from: { transform: 'rotate(360deg)' },
+                            to: { transform: 'rotate(0deg)' }
+                        }
+                    }
+                }
+            }
+        }
+    </script>
 
     <style>
-        /* Design System Variables */
-        :root {
-            --primary: #0ea5e9; 
-            --bg-dark: #0f172a;
-            --panel: #1e293b;
-            --border: #334155;
-            --text-main: #f1f5f9;
-            --text-mute: #94a3b8;
+        /* Custom Styles & Scrollbars */
+        body {
+            background-color: #050b14;
+            color: #f1f5f9;
+            overflow: hidden; /* App Feeling */
         }
-
-        body { 
-            font-family: 'Inter', sans-serif; 
-            background-color: var(--bg-dark); 
-            color: var(--text-main);
-            height: 100vh; 
-            overflow: hidden; 
-            display: flex;
-        }
-
-        /* Layout Architecture */
-        .app-container { display: flex; width: 100%; height: 100%; position: relative; }
         
-        .sidebar { 
-            width: 380px; 
-            background: var(--panel); 
-            border-right: 1px solid var(--border); 
-            display: flex; 
-            flex-direction: column; 
-            flex-shrink: 0;
-            z-index: 20;
-        }
-
-        .chat-area { 
-            flex: 1; 
-            background: #0b1120; 
-            position: relative; 
-            display: flex; 
-            flex-direction: column; 
-            z-index: 10;
-        }
-
-        .chat-area::before {
-            content: ""; position: absolute; inset: 0; opacity: 0.03; pointer-events: none;
-            background-image: url('https://www.transparenttextures.com/patterns/cubes.png');
-        }
-
-        /* UI Components */
-        .search-bar {
-            background: #0f172a;
-            border: 1px solid var(--border);
-            border-radius: 12px;
-            padding: 10px;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            margin: 15px;
-        }
-
-        .contact-item {
-            padding: 12px 20px;
-            display: flex;
-            align-items: center;
-            gap: 15px;
-            cursor: pointer;
-            transition: 0.2s;
-            border-bottom: 1px solid rgba(255,255,255,0.02);
-        }
-        .contact-item:hover { background: rgba(255,255,255,0.05); }
-        .contact-item.active { background: rgba(14, 165, 233, 0.15); border-left: 4px solid var(--primary); }
-
-        .avatar {
-            width: 45px; height: 45px; 
-            border-radius: 50%; 
-            background: linear-gradient(135deg, #6366f1, #3b82f6);
-            display: flex; align-items: center; justify-content: center;
-            font-weight: bold; font-size: 18px; color: white;
-            flex-shrink: 0;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-        }
-
-        /* Message Bubbles */
-        .msg-container {
-            flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 12px;
-        }
-
-        .msg {
-            max-width: 75%;
-            padding: 12px 16px;
-            border-radius: 18px;
-            font-size: 15px;
-            line-height: 1.5;
-            position: relative;
-            word-wrap: break-word;
-            animation: slideUp 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-        }
-        @keyframes slideUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-
-        .msg-me { background: var(--primary); color: white; align-self: flex-end; border-bottom-right-radius: 2px; }
-        .msg-other { background: var(--panel); color: white; align-self: flex-start; border-bottom-left-radius: 2px; border: 1px solid var(--border); }
-        .msg-ai { background: linear-gradient(135deg, #7c3aed, #4f46e5); color: white; align-self: flex-start; border-bottom-left-radius: 2px; border: 1px solid #a78bfa; }
-        .msg-sys { align-self: center; background: rgba(255,255,255,0.1); font-size: 12px; padding: 4px 12px; border-radius: 20px; color: var(--text-mute); }
-
-        .img-msg { max-width: 100%; border-radius: 12px; margin-top: 5px; cursor: pointer; border: 2px solid rgba(255,255,255,0.2); transition: transform 0.2s; }
-        .img-msg:hover { transform: scale(1.02); }
-
-        /* Modals & Overlays */
-        .modal-overlay {
-            position: fixed; inset: 0; background: rgba(0,0,0,0.85); z-index: 100;
-            display: flex; align-items: center; justify-content: center;
-            opacity: 0; pointer-events: none; transition: 0.3s;
-            backdrop-filter: blur(5px);
-        }
-        .modal-overlay.open { opacity: 1; pointer-events: all; }
-        
-        .modal-box {
-            background: var(--panel); width: 90%; max-width: 400px; padding: 30px; border-radius: 24px;
-            border: 1px solid var(--border); box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
-            transform: scale(0.95); transition: 0.3s;
-        }
-        .modal-overlay.open .modal-box { transform: scale(1); }
-
-        /* Loader */
-        .loader-screen {
-            position: fixed; inset: 0; background: var(--bg-dark); z-index: 200;
-            display: flex; flex-direction: column; align-items: center; justify-content: center;
-            transition: opacity 0.5s;
-        }
-        .spinner { border: 4px solid rgba(255,255,255,0.1); border-left-color: var(--primary); border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; }
-        @keyframes spin { 100% { transform: rotate(360deg); } }
-
-        /* Scrollbar */
-        ::-webkit-scrollbar { width: 6px; }
-        ::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
+        ::-webkit-scrollbar { width: 5px; }
         ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #334155; border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: #475569; }
 
-        /* Mobile Responsiveness */
-        @media (max-width: 768px) {
-            .sidebar { width: 100%; position: absolute; height: 100%; }
-            .sidebar.hidden { transform: translateX(-100%); }
-            .chat-area { width: 100%; }
+        .glass-panel {
+            background: rgba(15, 23, 42, 0.7);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.05);
         }
+
+        /* Loading Screen Animation */
+        .loader-bar {
+            width: 0%;
+            height: 4px;
+            /* Gradient matching the Logo (Blue -> Green) */
+            background: linear-gradient(90deg, #0ea5e9, #10b981);
+            transition: width 3.5s ease-in-out;
+            border-radius: 2px;
+            box-shadow: 0 0 15px rgba(16, 185, 129, 0.5);
+        }
+
+        .text-gradient {
+            background: linear-gradient(135deg, #0ea5e9 0%, #10b981 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .chat-bubble {
+            position: relative;
+            max-width: 80%;
+            padding: 12px 16px;
+            border-radius: 20px;
+            font-size: 0.95rem;
+            line-height: 1.5;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        @keyframes popIn {
+            from { opacity: 0; transform: scale(0.9) translateY(10px); }
+            to { opacity: 1; transform: scale(1) translateY(0); }
+        }
+
+        .bubble-me { background: #0ea5e9; color: #fff; border-bottom-right-radius: 4px; margin-left: auto; }
+        .bubble-other { background: #1e293b; color: #fff; border-bottom-left-radius: 4px; border: 1px solid #334155; }
+        .bubble-ai { background: linear-gradient(135deg, #6b21a8, #a855f7); color: white; border-bottom-left-radius: 4px; border: 1px solid #c084fc; }
+
+        /* Recording Pulse */
+        .recording-pulse {
+            animation: recordPulse 1.5s infinite;
+        }
+        @keyframes recordPulse {
+            0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); }
+            70% { box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+        }
+        
+        .hidden-force { display: none !important; }
     </style>
 </head>
-<body>
+<body class="h-screen w-screen flex flex-col font-sans">
 
-    <!-- LOADING SCREEN -->
-    <div id="loaderScreen" class="loader-screen">
-        <h1 class="text-4xl font-black text-white mb-4 tracking-tighter">COSMOCHAT</h1>
-        <div class="spinner"></div>
-        <p class="text-gray-500 text-xs mt-4 font-mono">VERBINDE MIT SATELLIT...</p>
-    </div>
-
-    <!-- SETTINGS MODAL -->
-    <div id="settingsModal" class="modal-overlay">
-        <div class="modal-box">
-            <h2 class="text-2xl font-bold mb-6 text-white flex items-center gap-2"><i class="fa-solid fa-user-astronaut"></i> Profil</h2>
-            <div class="space-y-4">
-                <div>
-                    <label class="text-xs font-bold text-sky-400 uppercase tracking-wider">Dein Name</label>
-                    <input type="text" id="settingName" class="w-full bg-[#0f172a] border border-slate-600 rounded-xl p-3 text-white mt-1 focus:border-sky-500 outline-none transition">
-                </div>
-                <div>
-                    <label class="text-xs font-bold text-sky-400 uppercase tracking-wider">Status</label>
-                    <input type="text" id="settingStatus" class="w-full bg-[#0f172a] border border-slate-600 rounded-xl p-3 text-white mt-1 focus:border-sky-500 outline-none transition">
-                </div>
-            </div>
-            <div class="flex justify-end gap-3 mt-8">
-                <button onclick="closeModal('settingsModal')" class="text-slate-400 hover:text-white px-4 py-2 transition">Abbrechen</button>
-                <button onclick="saveSettings()" class="bg-sky-600 hover:bg-sky-500 text-white px-6 py-2 rounded-xl font-bold shadow-lg shadow-sky-900/20 transition hover:scale-105">Speichern</button>
-            </div>
+    <!-- 1. LOADING SCREEN -->
+    <div id="loadingScreen" class="fixed inset-0 z-50 bg-globe-dark flex flex-col items-center justify-center transition-opacity duration-1000">
+        <!-- Animated Logo Container -->
+        <div class="relative mb-8 w-48 h-48 flex items-center justify-center">
+            <div class="absolute inset-0 bg-blue-500/10 blur-3xl rounded-full"></div>
+            
+            <svg viewBox="0 0 200 200" class="w-full h-full drop-shadow-[0_0_15px_rgba(16,185,129,0.4)]">
+                <defs>
+                    <linearGradient id="logoGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                        <stop offset="0%" style="stop-color:#0ea5e9;stop-opacity:1" /> <!-- Blue -->
+                        <stop offset="100%" style="stop-color:#10b981;stop-opacity:1" /> <!-- Green -->
+                    </linearGradient>
+                </defs>
+                <circle cx="100" cy="100" r="15" fill="url(#logoGrad)" opacity="0.8" class="animate-pulse"></circle>
+                <g class="animate-spin-slow" style="transform-origin: 100px 100px;">
+                    <ellipse cx="100" cy="100" rx="80" ry="35" stroke="url(#logoGrad)" stroke-width="6" fill="none" transform="rotate(45 100 100)" stroke-linecap="round" opacity="0.9"/>
+                    <circle cx="160" cy="160" r="4" fill="#10b981" transform="rotate(45 100 100)"/>
+                </g>
+                <g class="animate-spin-reverse" style="transform-origin: 100px 100px;">
+                    <ellipse cx="100" cy="100" rx="80" ry="35" stroke="url(#logoGrad)" stroke-width="6" fill="none" transform="rotate(-45 100 100)" stroke-linecap="round" opacity="0.8"/>
+                     <circle cx="40" cy="40" r="4" fill="#0ea5e9" transform="rotate(-45 100 100)"/>
+                </g>
+                <g class="animate-spin-slow" style="animation-duration: 25s; transform-origin: 100px 100px;">
+                    <ellipse cx="100" cy="100" rx="80" ry="25" stroke="url(#logoGrad)" stroke-width="5" fill="none" stroke-linecap="round" opacity="0.7"/>
+                </g>
+                <circle cx="100" cy="20" r="3" fill="#10b981" class="animate-bounce" />
+                <circle cx="180" cy="100" r="3" fill="#0ea5e9" class="animate-pulse" />
+                <circle cx="20" cy="100" r="3" fill="#0ea5e9" class="animate-pulse" />
+            </svg>
         </div>
-    </div>
 
-    <!-- CREATE GROUP MODAL -->
-    <div id="groupModal" class="modal-overlay">
-        <div class="modal-box">
-            <h2 class="text-xl font-bold mb-4 text-white flex items-center gap-2"><i class="fa-solid fa-users"></i> Neue Gruppe</h2>
-            <input type="text" id="groupNameInp" placeholder="Gruppenname..." class="w-full bg-[#0f172a] border border-slate-600 rounded-xl p-3 text-white mb-4 outline-none focus:border-emerald-500 transition">
-            <div class="flex justify-end gap-3">
-                <button onclick="closeModal('groupModal')" class="text-slate-400 hover:text-white">Zurück</button>
-                <button onclick="createGroup()" class="bg-emerald-600 hover:bg-emerald-500 text-white px-6 py-2 rounded-xl font-bold shadow-lg transition hover:scale-105">Erstellen</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- MAIN APP -->
-    <div class="app-container">
+        <h1 class="text-4xl font-bold tracking-[0.1em] text-gradient mb-2 drop-shadow-sm">GLOBE LINK</h1>
+        <p class="text-slate-400 text-xs tracking-[0.3em] mb-12 uppercase">Connecting.Worlds.Seamlessly</p>
         
-        <!-- SIDEBAR -->
-        <div id="sidebar" class="sidebar">
-            <!-- Header -->
-            <div class="p-5 border-b border-slate-700 bg-[#151f32] flex justify-between items-center shadow-md z-20">
-                <div class="flex items-center gap-3 cursor-pointer hover:opacity-80 transition" onclick="openModal('settingsModal')">
-                    <div class="avatar" id="myAvatar">C</div>
-                    <div>
-                        <h3 id="myName" class="font-bold text-white text-sm">Lade...</h3>
-                        <p id="myID" class="text-[10px] text-emerald-400 font-mono tracking-widest bg-emerald-900/30 px-2 py-0.5 rounded">ID: ------</p>
+        <div id="progressContainer" class="flex flex-col items-center w-full max-w-xs">
+            <div class="w-full h-1.5 bg-slate-800/50 rounded-full overflow-hidden backdrop-blur-sm border border-slate-700/50">
+                <div id="progressBar" class="loader-bar"></div>
+            </div>
+            <p id="loadingText" class="mt-4 text-[10px] text-slate-500 font-mono tracking-widest">INITIALIZING NETWORK...</p>
+        </div>
+    </div>
+
+    <!-- 2. MAIN APP CONTAINER -->
+    <div id="appContainer" class="flex-1 flex overflow-hidden opacity-0 transition-opacity duration-1000">
+        
+        <!-- LEFT SIDEBAR -->
+        <div class="w-full md:w-[380px] bg-globe-panel border-r border-slate-700 flex flex-col z-20 flex-shrink-0">
+            
+            <div class="p-6 border-b border-slate-700 bg-slate-900/50">
+                <div class="flex items-center gap-4">
+                    <div class="w-14 h-14 rounded-full bg-gradient-to-br from-cyan-500 to-green-500 flex items-center justify-center text-white text-xl font-bold shadow-lg" id="myAvatar">
+                        U
+                    </div>
+                    <div class="flex-1">
+                        <label class="text-[10px] text-slate-400 uppercase font-bold tracking-wider mb-1 block">Dein Name</label>
+                        <input type="text" id="myNameInput" placeholder="Name eingeben..." class="bg-slate-800/50 border border-slate-700 rounded-lg px-2 py-1 text-white font-bold text-sm outline-none w-full focus:border-green-400 focus:bg-slate-800 transition" onblur="saveName()">
+                        
+                        <div class="flex items-center gap-2 mt-2">
+                            <span class="text-xs text-slate-400 uppercase font-bold tracking-wider">ID:</span>
+                            <span id="myIDDisplay" class="font-mono text-green-400 text-sm bg-green-900/20 px-2 py-0.5 rounded cursor-pointer hover:bg-green-900/40 border border-green-500/20" onclick="copyId()" title="Klicken zum Kopieren">Loading...</span>
+                        </div>
                     </div>
                 </div>
-                <div class="flex gap-1">
-                    <button onclick="openModal('groupModal')" class="w-8 h-8 rounded-full bg-slate-700 hover:bg-slate-600 text-white flex items-center justify-center transition" title="Gruppe"><i class="fa-solid fa-plus"></i></button>
-                    <button onclick="openModal('settingsModal')" class="w-8 h-8 rounded-full bg-slate-700 hover:bg-slate-600 text-white flex items-center justify-center transition" title="Settings"><i class="fa-solid fa-gear"></i></button>
+            </div>
+
+            <div class="p-4">
+                <div class="bg-slate-800/50 rounded-xl p-3 border border-slate-700 flex gap-2 focus-within:border-blue-500/50 transition">
+                    <input type="text" id="addFriendInput" placeholder="Freundes-ID eingeben (6-8 stellig)" class="bg-transparent w-full text-sm outline-none text-white placeholder-slate-500 font-mono">
+                    <button onclick="addFriend()" class="text-blue-400 hover:text-white transition px-2"><i class="fa-solid fa-user-plus"></i></button>
                 </div>
             </div>
 
-            <!-- Add Friend -->
-            <div class="search-bar">
-                <i class="fa-solid fa-user-plus text-slate-500"></i>
-                <input type="text" id="friendIdInp" placeholder="ID (6-stellig)..." class="bg-transparent border-none outline-none text-white text-sm w-full font-mono">
-                <button onclick="addFriend()" class="text-sky-500 hover:text-sky-400 font-bold text-xs uppercase tracking-wider">Add</button>
+            <div class="flex px-4 border-b border-slate-700">
+                <button onclick="switchTab('friends')" id="tabFriends" class="flex-1 pb-3 text-sm font-medium text-blue-400 border-b-2 border-blue-400 transition">Freunde</button>
+                <button onclick="switchTab('requests')" id="tabRequests" class="flex-1 pb-3 text-sm font-medium text-slate-500 hover:text-slate-300 transition relative">
+                    Anfragen
+                    <span id="reqBadge" class="hidden absolute top-0 right-8 w-2 h-2 bg-red-500 rounded-full"></span>
+                </button>
             </div>
 
-            <!-- Tabs -->
-            <div class="flex px-6 border-b border-slate-800">
-                <button onclick="switchTab('friends')" id="tabFriends" class="flex-1 pb-3 text-sm font-bold text-sky-400 border-b-2 border-sky-400 transition">Freunde</button>
-                <button onclick="switchTab('groups')" id="tabGroups" class="flex-1 pb-3 text-sm font-bold text-slate-500 hover:text-slate-300 transition">Gruppen</button>
-            </div>
-
-            <!-- List -->
-            <div id="listContainer" class="flex-1 overflow-y-auto py-2 px-2">
-                <!-- Dynamischer Inhalt -->
+            <div id="friendsList" class="flex-1 overflow-y-auto p-2 space-y-1">
+                <div class="p-8 text-center text-slate-600 text-sm">
+                    <i class="fa-solid fa-users-slash text-2xl mb-2 opacity-50"></i><br>
+                    Noch keine Freunde.<br>Teile deine ID!
+                </div>
             </div>
         </div>
 
-        <!-- CHAT AREA -->
-        <div id="chatArea" class="chat-area">
-            
+        <!-- RIGHT CHAT AREA -->
+        <div id="chatArea" class="flex-1 bg-globe-dark relative flex flex-col min-w-0">
+            <div class="absolute inset-0 opacity-10 pointer-events-none" style="background-image: radial-gradient(#10b981 1px, transparent 1px); background-size: 30px 30px;"></div>
+
             <!-- Empty State -->
-            <div id="emptyState" class="absolute inset-0 flex flex-col items-center justify-center text-slate-600 z-0">
-                <div class="w-24 h-24 bg-slate-800 rounded-full flex items-center justify-center mb-6 shadow-2xl">
-                    <i class="fa-solid fa-comments text-4xl text-slate-500"></i>
+            <div id="emptyChatState" class="absolute inset-0 flex flex-col items-center justify-center z-0 text-center p-4">
+                <div class="w-32 h-32 mb-6 opacity-50">
+                     <svg viewBox="0 0 200 200" class="w-full h-full">
+                        <defs>
+                            <linearGradient id="logoGradSmall" x1="0%" y1="0%" x2="100%" y2="100%">
+                                <stop offset="0%" style="stop-color:#0ea5e9;stop-opacity:1" />
+                                <stop offset="100%" style="stop-color:#10b981;stop-opacity:1" />
+                            </linearGradient>
+                        </defs>
+                        <g class="animate-spin-slow" style="transform-origin: 100px 100px;">
+                             <ellipse cx="100" cy="100" rx="80" ry="35" stroke="url(#logoGradSmall)" stroke-width="4" fill="none" transform="rotate(45 100 100)" />
+                             <ellipse cx="100" cy="100" rx="80" ry="35" stroke="url(#logoGradSmall)" stroke-width="4" fill="none" transform="rotate(-45 100 100)" />
+                        </g>
+                    </svg>
                 </div>
-                <h2 class="text-2xl font-bold text-slate-400">CosmoChat Enterprise</h2>
-                <p class="text-sm mt-2 text-slate-600">Wähle einen Chat oder starte eine neue Konversation.</p>
-                <div class="mt-8 flex gap-4 text-xs font-mono text-slate-700">
-                    <span><i class="fa-solid fa-lock"></i> Ende-zu-Ende</span>
-                    <span><i class="fa-solid fa-cloud"></i> Cloud Sync</span>
+                <h2 class="text-3xl font-bold text-gradient mb-2">Globe Link</h2>
+                <p class="text-slate-400 max-w-md">Wähle einen Freund aus der Liste oder füge jemanden hinzu, um eine sichere Verbindung aufzubauen.</p>
+                
+                <div class="mt-8 flex gap-4">
+                    <button onclick="openGeminiChat()" class="px-6 py-3 bg-gradient-to-r from-purple-600 to-indigo-600 rounded-xl text-white font-bold hover:scale-105 transition shadow-lg shadow-purple-900/40 flex items-center gap-2 border border-purple-500/30">
+                        <i class="fa-solid fa-robot"></i> Mit Gemini Chatten
+                    </button>
                 </div>
             </div>
 
-            <!-- Active Chat -->
-            <div id="chatInterface" class="hidden flex-col h-full w-full z-10">
+            <!-- Active Chat Interface -->
+            <div id="activeChatInterface" class="hidden flex-col h-full w-full z-10 bg-globe-dark/95 backdrop-blur-sm">
                 
-                <!-- Chat Header -->
-                <div class="h-16 bg-[#151f32]/95 backdrop-blur border-b border-slate-800 flex items-center px-6 justify-between shadow-lg z-20">
-                    <div class="flex items-center gap-4">
-                        <button class="md:hidden text-slate-400 hover:text-white" onclick="toggleSidebar()"><i class="fa-solid fa-arrow-left text-xl"></i></button>
-                        <div class="avatar" id="chatHeaderAvatar" style="width: 38px; height: 38px; font-size: 14px;">?</div>
+                <div class="h-16 border-b border-slate-800 flex items-center justify-between px-6 bg-slate-900/80">
+                    <div class="flex items-center gap-3">
+                        <button class="md:hidden text-slate-400 mr-2" onclick="closeChatMobile()"><i class="fa-solid fa-arrow-left"></i></button>
+                        <div class="w-10 h-10 rounded-full bg-slate-700 flex items-center justify-center text-white font-bold" id="chatHeaderAvatar">?</div>
                         <div>
-                            <h3 id="chatHeaderName" class="font-bold text-white text-sm">Chat</h3>
+                            <h3 id="chatHeaderName" class="font-bold text-white leading-tight">User</h3>
                             <div class="flex items-center gap-1.5">
-                                <span class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
-                                <p class="text-[10px] text-green-400 font-medium">Verbunden</p>
+                                <span class="w-2 h-2 bg-green-500 rounded-full shadow-[0_0_8px_#22c55e]"></span>
+                                <span class="text-xs text-slate-400 font-mono">SECURE CONNECTION</span>
                             </div>
                         </div>
                     </div>
                     <div class="flex gap-4 text-slate-400">
-                        <button class="hover:text-white transition w-8 h-8 flex items-center justify-center rounded-full hover:bg-slate-700/50"><i class="fa-solid fa-phone"></i></button>
-                        <button class="hover:text-white transition w-8 h-8 flex items-center justify-center rounded-full hover:bg-slate-700/50"><i class="fa-solid fa-video"></i></button>
-                        <button class="hover:text-white transition w-8 h-8 flex items-center justify-center rounded-full hover:bg-slate-700/50"><i class="fa-solid fa-ellipsis-vertical"></i></button>
+                        <button title="Audio Call" class="hover:text-blue-400 transition"><i class="fa-solid fa-phone"></i></button>
+                        <button title="Video Call" class="hover:text-blue-400 transition"><i class="fa-solid fa-video"></i></button>
+                        <button title="Settings" class="hover:text-white transition"><i class="fa-solid fa-ellipsis-vertical"></i></button>
                     </div>
                 </div>
 
-                <!-- Messages -->
-                <div id="msgContainer" class="msg-container"></div>
+                <div id="messagesContainer" class="flex-1 overflow-y-auto p-4 space-y-4 scroll-smooth"></div>
 
-                <!-- Input -->
-                <div class="p-4 bg-[#151f32] border-t border-slate-800 flex items-end gap-3 z-20">
-                    
-                    <!-- AI Button -->
-                    <button onclick="quickAI()" class="w-11 h-11 rounded-xl bg-gradient-to-br from-purple-600 to-indigo-600 text-white flex items-center justify-center shrink-0 hover:scale-105 transition shadow-lg shadow-purple-900/40 tooltip" title="KI Fragen">
-                        <i class="fa-solid fa-robot text-lg"></i>
-                    </button>
-                    
-                    <!-- Attach -->
-                    <button class="w-11 h-11 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition flex items-center justify-center shrink-0">
-                        <i class="fa-solid fa-paperclip text-lg"></i>
-                    </button>
-
-                    <!-- Text Area -->
-                    <div class="flex-1 bg-[#0f172a] border border-slate-700 rounded-xl flex items-center px-2 focus-within:border-sky-500/50 transition">
-                        <textarea id="msgInput" rows="1" placeholder="Nachricht oder /imagine..." class="w-full bg-transparent text-white p-3 text-sm outline-none resize-none h-11 py-3"></textarea>
+                <div class="p-4 bg-slate-900 border-t border-slate-800">
+                    <div id="aiContextBar" class="hidden mb-2 px-3 py-1 bg-purple-900/30 border border-purple-500/30 rounded text-xs text-purple-300 flex justify-between items-center">
+                        <span><i class="fa-solid fa-wand-magic-sparkles mr-2"></i>Gemini Modus Aktiv</span>
+                        <button onclick="toggleAIMode(false)" class="hover:text-white"><i class="fa-solid fa-xmark"></i></button>
                     </div>
 
-                    <!-- Send -->
-                    <button onclick="sendMessage()" class="w-11 h-11 rounded-xl bg-sky-600 text-white flex items-center justify-center shrink-0 hover:bg-sky-500 transition shadow-lg shadow-sky-900/40 hover:scale-105 active:scale-95">
-                        <i class="fa-solid fa-paper-plane text-sm"></i>
-                    </button>
+                    <div class="flex items-end gap-2 bg-slate-800/50 p-2 rounded-2xl border border-slate-700 focus-within:border-blue-500/50 transition">
+                        <button onclick="toggleAIMode()" id="aiBtn" class="w-10 h-10 rounded-xl text-slate-400 hover:text-purple-400 hover:bg-purple-900/20 transition flex items-center justify-center shrink-0" title="Gemini AI">
+                            <i class="fa-solid fa-robot"></i>
+                        </button>
+                        
+                        <!-- Added ID for Logic -->
+                        <button onclick="triggerImageUpload()" id="imgBtn" class="w-10 h-10 rounded-xl text-slate-400 hover:text-white hover:bg-slate-700 transition flex items-center justify-center shrink-0">
+                            <i class="fa-solid fa-image"></i>
+                        </button>
+                        <input type="file" id="imgUpload" class="hidden" accept="image/*" onchange="handleImageUpload(this)">
+
+                        <textarea id="msgInput" rows="1" placeholder="Nachricht schreiben..." class="flex-1 bg-transparent text-white p-2.5 text-sm outline-none resize-none max-h-32 placeholder-slate-500"></textarea>
+
+                        <!-- Added ID for Logic -->
+                        <button id="micBtn" onmousedown="startRecording()" onmouseup="stopRecording()" class="w-10 h-10 rounded-xl text-slate-400 hover:text-red-500 hover:bg-red-900/20 transition flex items-center justify-center shrink-0">
+                            <i class="fa-solid fa-microphone"></i>
+                        </button>
+
+                        <button onclick="sendMessage()" class="w-10 h-10 rounded-xl bg-blue-600 text-white shadow-lg shadow-blue-900/30 hover:bg-blue-500 transition flex items-center justify-center shrink-0 hover:scale-105 active:scale-95">
+                            <i class="fa-solid fa-paper-plane"></i>
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
 
+    <!-- JAVASCRIPT LOGIC -->
     <script>
-        // --- CORE SYSTEM ---
-        const socket = io();
-        let myId = localStorage.getItem('cosmo_ent_uid');
-        let myName = localStorage.getItem('cosmo_ent_name') || 'Cosmonaut';
-        let currentRoom = null;
-        let currentTab = 'friends';
-        
-        // Cache für UI Referenzen
-        const ui = {
-            loader: document.getElementById('loaderScreen'),
-            list: document.getElementById('listContainer'),
-            msgContainer: document.getElementById('msgContainer'),
-            msgInput: document.getElementById('msgInput'),
-            chatInterface: document.getElementById('chatInterface'),
-            emptyState: document.getElementById('emptyState'),
-            sidebar: document.getElementById('sidebar')
+        // --- 1. STATE MANAGEMENT ---
+        const state = {
+            user: { id: null, name: 'Anonym' },
+            friends: [], 
+            requests: [],
+            currentChatId: null,
+            isGeminiMode: false
         };
 
-        // --- CONNECTIVITY ---
-        socket.on('connect', () => {
-            console.log("System verbunden.");
-            socket.emit('system_login', { id: myId });
-        });
-
-        socket.on('login_success', (data) => {
-            // State Update
-            myId = data.id;
-            myName = data.profile.name || myName;
-            localStorage.setItem('cosmo_ent_uid', myId);
-            localStorage.setItem('cosmo_ent_name', myName);
-            
-            // Header Update
-            document.getElementById('myID').innerText = "ID: " + myId;
-            document.getElementById('myName').innerText = myName;
-            document.getElementById('myAvatar').innerText = myName[0].toUpperCase();
-            
-            // Hide Loader
-            ui.loader.style.opacity = '0';
-            setTimeout(() => ui.loader.style.display = 'none', 500);
-            
-            // Render Default List
-            renderList(data.friends, 'friends');
-        });
-
-        // --- LISTEN LOGIK ---
-        socket.on('friend_list_update', (friends) => {
-            if(currentTab === 'friends') renderList(friends, 'friends');
-        });
-        socket.on('group_list_update', (groups) => {
-            if(currentTab === 'groups') renderList(groups, 'groups');
-        });
-
-        function switchTab(tab) {
-            currentTab = tab;
-            // UI Toggle
-            document.getElementById('tabFriends').className = tab === 'friends' ? "flex-1 pb-3 text-sm font-bold text-sky-400 border-b-2 border-sky-400 transition" : "flex-1 pb-3 text-sm font-bold text-slate-500 hover:text-slate-300 transition";
-            document.getElementById('tabGroups').className = tab === 'groups' ? "flex-1 pb-3 text-sm font-bold text-sky-400 border-b-2 border-sky-400 transition" : "flex-1 pb-3 text-sm font-bold text-slate-500 hover:text-slate-300 transition";
-            
-            // Reload Data
-            socket.emit('system_login', { id: myId });
+        // --- 2. AUDIO SYSTEM ---
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        
+        function playStartupSound() {
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(220, audioCtx.currentTime); 
+            osc.frequency.exponentialRampToValueAtTime(440, audioCtx.currentTime + 2);
+            osc.frequency.exponentialRampToValueAtTime(880, audioCtx.currentTime + 3);
+            gain.gain.setValueAtTime(0, audioCtx.currentTime);
+            gain.gain.linearRampToValueAtTime(0.5, audioCtx.currentTime + 1);
+            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 4);
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.start();
+            osc.stop(audioCtx.currentTime + 4);
         }
 
-        function renderList(items, type) {
-            ui.list.innerHTML = '';
-            if(!items || items.length === 0) {
-                ui.list.innerHTML = `<div class="text-center text-slate-600 text-sm mt-10 p-4">Keine ${type === 'friends' ? 'Freunde' : 'Gruppen'} gefunden.<br>Nutze + zum Hinzufügen.</div>`;
-                return;
-            }
-            
-            items.forEach(item => {
-                const el = document.createElement('div');
-                el.className = `contact-item ${currentRoom === item.id ? 'active' : ''}`;
-                el.onclick = () => openChat(item.id, item.name, type === 'groups');
-                
-                const icon = type === 'groups' ? '<i class="fa-solid fa-users"></i>' : (item.name[0].toUpperCase());
-                const status = item.online ? '<span class="text-green-500 text-[10px]">● Online</span>' : '<span class="text-slate-600 text-[10px]">Offline</span>';
-                
-                el.innerHTML = `
-                    <div class="avatar" style="${type==='groups'?'background: #334155':''}">${icon}</div>
-                    <div class="flex-1 min-w-0">
-                        <div class="flex justify-between items-baseline">
-                            <h4 class="font-bold text-slate-200 truncate text-sm">${item.name}</h4>
-                        </div>
-                        <div class="text-xs text-slate-500 truncate">${type==='groups' ? 'Gruppe' : status}</div>
-                    </div>
-                `;
-                ui.list.appendChild(el);
-            });
-        }
-
-        // --- ACTIONS ---
-        function addFriend() {
-            const id = document.getElementById('friendIdInp').value.trim();
-            if(id.length === 6 && id !== myId) {
-                socket.emit('add_contact', { target_id: id });
-                document.getElementById('friendIdInp').value = '';
-            } else { alert("Ungültige ID."); }
-        }
-
-        function createGroup() {
-            const name = document.getElementById('groupNameInp').value.trim();
-            if(name) {
-                socket.emit('create_group', { name: name });
-                closeModal('groupModal');
-                switchTab('groups');
-            }
-        }
-
-        function saveSettings() {
-            const name = document.getElementById('settingName').value.trim();
-            if(name) {
-                socket.emit('update_profile', { name: name });
-                closeModal('settingsModal');
-            }
-        }
-
-        socket.on('profile_updated', (d) => {
-            if(d.name) {
-                myName = d.name;
-                document.getElementById('myName').innerText = d.name;
-                document.getElementById('myAvatar').innerText = d.name[0].toUpperCase();
-            }
-        });
-
-        // --- CHAT SYSTEM ---
-        function openChat(targetId, name, isGroup) {
-            currentRoom = null; // Reset
-            ui.emptyState.classList.add('hidden');
-            ui.chatInterface.classList.remove('hidden');
-            
-            document.getElementById('chatHeaderName').innerText = name;
-            document.getElementById('chatHeaderAvatar').innerText = name[0].toUpperCase();
-            
-            if(window.innerWidth <= 768) ui.sidebar.classList.add('hidden');
-
-            socket.emit('join_chat', { target_id: targetId, is_group: isGroup });
-        }
-
-        function toggleSidebar() {
-            ui.sidebar.classList.remove('hidden');
-            ui.chatInterface.classList.add('hidden');
-        }
-
-        socket.on('chat_ready', (data) => {
-            currentRoom = data.room;
-            ui.msgContainer.innerHTML = '';
-            data.history.forEach(renderMsg);
-            scrollToBottom();
-        });
-
-        socket.on('new_message_arrived', (msg) => {
-            // Auch anzeigen wenn anderer Raum (als Badge) - hier vereinfacht
-            if(currentRoom) renderMsg(msg);
-            scrollToBottom();
-        });
-
-        function sendMessage() {
-            const txt = ui.msgInput.value.trim();
-            if(!txt || !currentRoom) return;
-            socket.emit('send_message_content', { text: txt, room: currentRoom, type: 'text' });
-            ui.msgInput.value = '';
-        }
-
-        function quickAI() {
-            const txt = ui.msgInput.value.trim();
-            if(!txt) return alert("Schreibe erst eine Frage!");
-            renderMsg({sender_id: myId, text: "@ai " + txt, time_str: 'Jetzt', type: 'text'});
-            socket.emit('send_message_content', { text: "@ai " + txt, room: currentRoom, type: 'text' });
-            ui.msgInput.value = '';
-        }
-
-        function renderMsg(m) {
-            const isMe = m.sender_id === myId;
-            const isAI = m.is_ai || m.sender_id === 'ai_bot';
-            const isSys = m.type === 'system';
-
-            const div = document.createElement('div');
-            
-            if(isSys) {
-                div.className = 'flex justify-center mb-2';
-                div.innerHTML = `<div class="msg-sys">${m.content}</div>`;
+        function playMessageSound(type) {
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            if(type === 'sent') {
+                osc.frequency.setValueAtTime(800, audioCtx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(1200, audioCtx.currentTime + 0.1);
+                gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
+                osc.start(); osc.stop(audioCtx.currentTime + 0.1);
             } else {
-                div.className = `flex w-full mb-1 ${isMe ? 'justify-end' : 'justify-start'} msg-anim`;
-                const bubbleClass = isMe ? 'me' : (isAI ? 'ai' : 'other');
-                
-                let content = m.type === 'image' 
-                    ? `<img src="${m.content}" class="img-msg" onclick="window.open(this.src)">` 
-                    : `<div class="whitespace-pre-wrap">${m.text || m.content}</div>`;
+                osc.frequency.setValueAtTime(600, audioCtx.currentTime);
+                gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.2);
+                osc.start(); osc.stop(audioCtx.currentTime + 0.2);
+            }
+        }
 
-                div.innerHTML = `
-                    <div class="bubble ${bubbleClass}">
-                        ${!isMe ? `<div class="text-[10px] font-bold mb-1 opacity-70 ${isAI ? 'text-purple-200' : 'text-sky-300'}">${m.sender_name || 'User'}</div>` : ''}
-                        ${content}
-                        <div class="text-[9px] text-right mt-1 opacity-50 flex items-center justify-end gap-1">
-                            ${m.time_str || ''} ${isMe ? '<i class="fa-solid fa-check"></i>' : ''}
+        // --- 3. INIT & LOADING ---
+        window.onload = () => {
+            let savedId = localStorage.getItem('globe_uid');
+            if(!savedId) {
+                savedId = Math.floor(100000 + Math.random() * 900000).toString();
+                localStorage.setItem('globe_uid', savedId);
+            }
+            state.user.id = savedId;
+            state.user.name = localStorage.getItem('globe_name') || '';
+
+            document.getElementById('myIDDisplay').innerText = state.user.id;
+            if(state.user.name) {
+                document.getElementById('myNameInput').value = state.user.name;
+                document.getElementById('myAvatar').innerText = state.user.name[0].toUpperCase();
+            }
+
+            const bar = document.getElementById('progressBar');
+            const text = document.getElementById('loadingText');
+
+            setTimeout(() => { bar.style.width = "40%"; text.innerText = "ESTABLISHING SECURE HANDSHAKE..."; }, 500);
+            setTimeout(() => { bar.style.width = "80%"; text.innerText = "LOADING USER MODULES..."; }, 2000);
+            setTimeout(() => { 
+                bar.style.width = "100%"; 
+                playStartupSound();
+                document.getElementById('loadingScreen').style.opacity = '0';
+                setTimeout(() => {
+                    document.getElementById('loadingScreen').style.display = 'none';
+                    document.getElementById('appContainer').style.opacity = '1';
+                }, 1000);
+            }, 3500);
+
+            loadFriends();
+        };
+
+        function saveName() {
+            const name = document.getElementById('myNameInput').value.trim();
+            if(name) {
+                state.user.name = name;
+                localStorage.setItem('globe_name', name);
+                document.getElementById('myAvatar').innerText = name[0].toUpperCase();
+            }
+        }
+
+        // --- 4. DATA LOGIC ---
+        function loadFriends() {
+            const saved = localStorage.getItem('globe_friends');
+            if(saved) state.friends = JSON.parse(saved);
+            renderFriendsList();
+        }
+
+        function addFriend() {
+            const id = document.getElementById('addFriendInput').value.trim();
+            if(!id || id === state.user.id) return alert("Ungültige ID");
+            const newFriend = {
+                id: id,
+                name: "User " + id.substr(0,4),
+                messages: []
+            };
+            state.friends.push(newFriend);
+            localStorage.setItem('globe_friends', JSON.stringify(state.friends));
+            document.getElementById('addFriendInput').value = '';
+            renderFriendsList();
+        }
+
+        function renderFriendsList() {
+            const list = document.getElementById('friendsList');
+            list.innerHTML = '';
+
+            state.friends.forEach(friend => {
+                const el = document.createElement('div');
+                el.className = `p-3 flex items-center gap-3 rounded-xl cursor-pointer transition hover:bg-slate-800 ${state.currentChatId === friend.id ? 'bg-slate-800 border-l-4 border-blue-500' : 'border-l-4 border-transparent'}`;
+                el.onclick = () => openChat(friend.id);
+                el.innerHTML = `
+                    <div class="w-10 h-10 rounded-full bg-slate-700 flex items-center justify-center text-white font-bold">${friend.name[0]}</div>
+                    <div class="flex-1 min-w-0">
+                        <div class="flex justify-between">
+                            <h4 class="text-slate-200 font-medium truncate">${friend.name}</h4>
+                            <button onclick="event.stopPropagation(); deleteFriend('${friend.id}')" class="text-slate-600 hover:text-red-500 text-xs"><i class="fa-solid fa-trash"></i></button>
                         </div>
+                        <p class="text-xs text-slate-500 truncate">Klicken zum Chatten</p>
                     </div>
                 `;
+                list.appendChild(el);
+            });
+
+            const geminiEl = document.createElement('div');
+            geminiEl.className = "mt-4 p-3 flex items-center gap-3 rounded-xl cursor-pointer hover:bg-purple-900/20 border border-purple-500/20";
+            geminiEl.onclick = () => openGeminiChat();
+            geminiEl.innerHTML = `
+                 <div class="w-10 h-10 rounded-full bg-gradient-to-br from-purple-500 to-indigo-500 flex items-center justify-center text-white"><i class="fa-solid fa-robot"></i></div>
+                 <div class="flex-1">
+                    <h4 class="text-purple-300 font-bold">Gemini AI</h4>
+                    <p class="text-xs text-purple-400/60">Immer bereit zu helfen</p>
+                 </div>
+            `;
+            list.prepend(geminiEl);
+        }
+
+        function deleteFriend(id) {
+            if(confirm("Freund wirklich löschen?")) {
+                state.friends = state.friends.filter(f => f.id !== id);
+                localStorage.setItem('globe_friends', JSON.stringify(state.friends));
+                if(state.currentChatId === id) {
+                    document.getElementById('activeChatInterface').classList.add('hidden');
+                    document.getElementById('emptyChatState').classList.remove('hidden');
+                    state.currentChatId = null;
+                }
+                renderFriendsList();
             }
-            ui.msgContainer.appendChild(div);
         }
 
-        function scrollToBottom() {
-            ui.msgContainer.scrollTop = ui.msgContainer.scrollHeight;
+        // --- 5. CHAT LOGIC ---
+        function openChat(id) {
+            state.currentChatId = id;
+            const friend = state.friends.find(f => f.id === id);
+            
+            document.getElementById('emptyChatState').classList.add('hidden');
+            document.getElementById('activeChatInterface').classList.remove('hidden');
+            document.getElementById('activeChatInterface').classList.add('flex');
+            
+            // SHOW MIC & IMG for regular chat
+            document.getElementById('micBtn').classList.remove('hidden-force');
+            document.getElementById('imgBtn').classList.remove('hidden-force');
+            
+            document.getElementById('chatHeaderName').innerText = friend.name;
+            document.getElementById('chatHeaderAvatar').innerText = friend.name[0];
+            document.getElementById('chatHeaderAvatar').style.background = '#334155';
+
+            renderMessages(friend.messages);
+            renderFriendsList();
+            
+            if(window.innerWidth < 768) {
+                document.querySelector('.w-full.md\\:w-\\[380px\\]').classList.add('hidden');
+            }
         }
 
-        // --- UTILS & MODALS ---
-        function openModal(id) {
-            document.getElementById(id).classList.add('open');
-            if(id === 'settingsModal') document.getElementById('settingName').value = myName;
+        function openGeminiChat() {
+            state.currentChatId = 'gemini';
+            document.getElementById('emptyChatState').classList.add('hidden');
+            document.getElementById('activeChatInterface').classList.remove('hidden');
+            document.getElementById('activeChatInterface').classList.add('flex');
+
+            // HIDE MIC & IMG for Gemini
+            document.getElementById('micBtn').classList.add('hidden-force');
+            document.getElementById('imgBtn').classList.add('hidden-force');
+
+            document.getElementById('chatHeaderName').innerText = "Gemini AI";
+            document.getElementById('chatHeaderAvatar').innerHTML = '<i class="fa-solid fa-robot"></i>';
+            document.getElementById('chatHeaderAvatar').style.background = 'linear-gradient(135deg, #6b21a8, #a855f7)';
+
+            const msgs = localStorage.getItem('globe_gemini_msgs') ? JSON.parse(localStorage.getItem('globe_gemini_msgs')) : [{sender: 'ai', text: 'Hallo! Ich bin Gemini. Ich kann Texte schreiben, Bilder generieren (/image) oder einfach chatten.', type: 'text'}];
+            renderMessages(msgs);
+            
+            if(window.innerWidth < 768) {
+                document.querySelector('.w-full.md\\:w-\\[380px\\]').classList.add('hidden');
+            }
         }
-        function closeModal(id) { document.getElementById(id).classList.remove('open'); }
 
-        socket.on('system_notification', (d) => {
-            // Einfacher Alert für Notifications
-            alert(d.text);
-        });
+        function closeChatMobile() {
+            document.querySelector('.w-full.md\\:w-\\[380px\\]').classList.remove('hidden');
+            document.getElementById('activeChatInterface').classList.add('hidden');
+        }
 
-        // Enter Taste
-        ui.msgInput.addEventListener('keypress', (e) => {
+        function renderMessages(messages) {
+            const container = document.getElementById('messagesContainer');
+            container.innerHTML = '';
+            
+            messages.forEach(msg => {
+                const bubble = document.createElement('div');
+                bubble.className = `chat-bubble ${msg.sender === 'me' ? 'bubble-me' : (msg.sender === 'ai' ? 'bubble-ai' : 'bubble-other')}`;
+                
+                if(msg.type === 'text') {
+                    bubble.innerText = msg.text;
+                } else if (msg.type === 'image') {
+                    bubble.innerHTML = `<img src="${msg.content}" class="rounded-lg max-w-full cursor-pointer hover:opacity-90">`;
+                } else if (msg.type === 'audio') {
+                    // Unique ID for this audio to avoid collisions
+                    const audioId = 'audio_' + Math.random().toString(36).substr(2, 9);
+                    // We store the Audio object temporarily or create it on click
+                    bubble.innerHTML = `
+                        <div class="flex items-center gap-3 cursor-pointer select-none" onclick="playAudioMsg('${msg.content}')">
+                            <button class="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center hover:bg-white/30 transition">
+                                <i class="fa-solid fa-play text-sm ml-0.5"></i>
+                            </button> 
+                            <div class="flex flex-col">
+                                <span class="font-bold text-xs">Sprachnachricht</span>
+                                <span class="text-[10px] opacity-70">Klicken zum Abspielen</span>
+                            </div>
+                        </div>`;
+                }
+                
+                container.appendChild(bubble);
+            });
+            container.scrollTop = container.scrollHeight;
+        }
+        
+        // Helper to play base64 audio
+        function playAudioMsg(base64) {
+            try {
+                const audio = new Audio(base64);
+                audio.play();
+            } catch(e) { console.error("Audio Play Error", e); }
+        }
+
+        // --- 6. SENDING & RECORDING ---
+        let mediaRecorder;
+        let audioChunks = [];
+
+        async function startRecording() {
+            try {
+                // Request Mic Access
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                mediaRecorder = new MediaRecorder(stream);
+                audioChunks = [];
+                
+                mediaRecorder.ondataavailable = event => {
+                    audioChunks.push(event.data);
+                };
+
+                mediaRecorder.onstop = () => {
+                    const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+                    // Convert to Base64 for localStorage simulation
+                    const reader = new FileReader();
+                    reader.readAsDataURL(audioBlob);
+                    reader.onloadend = () => {
+                        const base64data = reader.result;
+                        appendMessage({ sender: 'me', content: base64data, type: 'audio' });
+                    };
+                    // Stop tracks to release mic
+                    stream.getTracks().forEach(track => track.stop());
+                };
+
+                mediaRecorder.start();
+                document.getElementById('micBtn').classList.add('text-red-500', 'recording-pulse');
+            } catch (err) {
+                alert("Mikrofon-Zugriff verweigert oder nicht verfügbar.");
+                console.error(err);
+            }
+        }
+
+        function stopRecording() {
+            if(mediaRecorder && mediaRecorder.state !== 'inactive') {
+                mediaRecorder.stop();
+                document.getElementById('micBtn').classList.remove('text-red-500', 'recording-pulse');
+            }
+        }
+
+        function toggleAIMode(force) {
+            state.isGeminiMode = force !== undefined ? force : !state.isGeminiMode;
+            const btn = document.getElementById('aiBtn');
+            const bar = document.getElementById('aiContextBar');
+            const input = document.getElementById('msgInput');
+            
+            if(state.isGeminiMode) {
+                btn.classList.replace('text-slate-400', 'text-purple-400');
+                bar.classList.remove('hidden');
+                input.placeholder = "Frage Gemini etwas oder generiere Text...";
+            } else {
+                btn.classList.replace('text-purple-400', 'text-slate-400');
+                bar.classList.add('hidden');
+                input.placeholder = "Nachricht schreiben...";
+            }
+        }
+
+        async function sendMessage() {
+            const input = document.getElementById('msgInput');
+            const text = input.value.trim();
+            if(!text) return;
+
+            const myMsg = { sender: 'me', text: text, type: 'text' };
+            appendMessage(myMsg);
+            input.value = '';
+            playMessageSound('sent');
+
+            if(state.currentChatId === 'gemini') {
+                showTypingIndicator();
+                setTimeout(async () => {
+                    removeTypingIndicator();
+                    let responseText = "";
+                    if(text.toLowerCase().startsWith('/image') || text.toLowerCase().includes('bild')) {
+                        responseText = "Ich würde hier ein Bild generieren, wenn der API Key konfiguriert wäre. 🖼️ [Simuliertes Bild]";
+                    } else {
+                        responseText = "Das ist eine simulierte Antwort von Gemini. Um echte KI zu nutzen, muss das Backend mit Google Cloud verbunden werden.";
+                    }
+                    appendMessage({ sender: 'ai', text: responseText, type: 'text' });
+                }, 1500);
+            } 
+            else if (state.isGeminiMode) {
+                toggleAIMode(false);
+                showTypingIndicator();
+                setTimeout(() => {
+                    removeTypingIndicator();
+                    const aiDraft = `[Gemini Vorschlag für "${text}"]: \n\n"Hey! Ich wollte dir nur sagen: ${text}..."`;
+                    appendMessage({ sender: 'me', text: aiDraft, type: 'text' }); 
+                }, 1000);
+            }
+            else {
+                setTimeout(() => {
+                   playMessageSound('receive');
+                }, 1000);
+            }
+        }
+
+        function appendMessage(msg) {
+            let list;
+            if(state.currentChatId === 'gemini') {
+                list = localStorage.getItem('globe_gemini_msgs') ? JSON.parse(localStorage.getItem('globe_gemini_msgs')) : [];
+                list.push(msg);
+                localStorage.setItem('globe_gemini_msgs', JSON.stringify(list));
+            } else {
+                const friend = state.friends.find(f => f.id === state.currentChatId);
+                friend.messages.push(msg);
+                list = friend.messages;
+                localStorage.setItem('globe_friends', JSON.stringify(state.friends));
+            }
+            renderMessages(list);
+        }
+
+        function showTypingIndicator() {
+            const container = document.getElementById('messagesContainer');
+            const div = document.createElement('div');
+            div.id = 'typingInd';
+            div.className = 'chat-bubble bubble-other opacity-50 text-xs italic flex gap-1';
+            div.innerHTML = '<span class="animate-bounce">●</span><span class="animate-bounce" style="animation-delay:0.1s">●</span><span class="animate-bounce" style="animation-delay:0.2s">●</span>';
+            container.appendChild(div);
+            container.scrollTop = container.scrollHeight;
+        }
+
+        function removeTypingIndicator() {
+            const el = document.getElementById('typingInd');
+            if(el) el.remove();
+        }
+
+        function handleImageUpload(input) {
+            if(input.files && input.files[0]) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    appendMessage({ sender: 'me', content: e.target.result, type: 'image' });
+                }
+                reader.readAsDataURL(input.files[0]);
+            }
+        }
+        function triggerImageUpload() { document.getElementById('imgUpload').click(); }
+
+        function copyId() {
+            navigator.clipboard.writeText(state.user.id);
+            alert("ID kopiert: " + state.user.id);
+        }
+        
+        document.getElementById('msgInput').addEventListener('keypress', function (e) {
             if (e.key === 'Enter' && !e.shiftKey) {
                 e.preventDefault();
                 sendMessage();
             }
         });
+
     </script>
 </body>
 </html>
