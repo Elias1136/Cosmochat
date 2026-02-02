@@ -1,15 +1,13 @@
-FROM python:3.10-slim
+# Verwende ein sehr leichtes Image für maximale Geschwindigkeit
+FROM nginx:alpine
 
-# Verhindert .pyc Dateien und puffert Output nicht (schnelleres Logging)
-ENV PYTHONDONTWRITEBYTECODE 1
-ENV PYTHONUNBUFFERED 1
+# Kopiere deine App (die index.html) in den Server-Ordner
+COPY index.html /usr/share/nginx/html/index.html
 
-WORKDIR /app
+# Öffne den Standard-Port für Cloud Run (normalerweise 8080)
+# Cloud Run setzt die PORT Umgebungsvariable automatisch, Nginx lauscht standardmäßig auf 80.
+# Wir konfigurieren Nginx kurz um, damit es Cloud Run Standards entspricht:
+RUN sed -i 's/listen       80;/listen       8080;/' /etc/nginx/conf.d/default.conf
 
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
-
-COPY . .
-
-ENV PORT 8080
-CMD exec gunicorn --bind :$PORT --worker-class eventlet --workers 1 app:app
+# Startbefehl
+CMD ["nginx", "-g", "daemon off;"]
