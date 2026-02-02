@@ -8,227 +8,141 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
-        /* WhatsApp-ähnliche Farben */
-        :root {
-            --bg-color: #dadbd3;
-            --chat-bg: #efeae2;
-            --sidebar-bg: #ffffff;
-            --my-bubble: #d9fdd3;
-            --other-bubble: #ffffff;
-            --ai-bubble: #f0f4ff;
-        }
-
-        body { background-color: var(--bg-color); font-family: -apple-system, sans-serif; height: 100vh; display: flex; overflow: hidden; }
+        body { background-color: #dadbd3; font-family: -apple-system, sans-serif; height: 100vh; overflow: hidden; display: flex; }
+        .app-container { display: flex; width: 100%; height: 100%; }
         
-        .main-container { width: 100%; height: 100%; display: flex; }
+        /* Sidebar */
+        .sidebar { width: 350px; background: white; border-right: 1px solid #e5e7eb; display: flex; flex-direction: column; }
         
-        /* Sidebar (Links) */
-        .sidebar { width: 30%; min-width: 300px; background: var(--sidebar-bg); border-right: 1px solid #e0e0e0; display: flex; flex-direction: column; }
-        
-        /* Chat Bereich (Rechts) */
-        .chat-view { flex: 1; background: var(--chat-bg); position: relative; display: flex; flex-direction: column; }
-        
-        /* Hintergrundbild-Muster */
+        /* Chat View */
+        .chat-view { flex: 1; background: #efeae2; position: relative; display: flex; flex-direction: column; }
         .chat-view::before {
-            content: ""; position: absolute; width: 100%; height: 100%;
+            content: ""; position: absolute; inset: 0; opacity: 0.06; pointer-events: none;
             background-image: url('https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png');
-            opacity: 0.06; pointer-events: none;
         }
 
-        /* Nachrichten-Bubbles */
-        .bubble { 
-            max-width: 65%; padding: 6px 10px; border-radius: 8px; font-size: 14.2px; line-height: 19px; 
-            box-shadow: 0 1px 0.5px rgba(0,0,0,0.13); margin-bottom: 4px; position: relative; z-index: 10;
-        }
-        .me { background: var(--my-bubble); align-self: flex-end; border-top-right-radius: 0; }
-        .other { background: var(--other-bubble); align-self: flex-start; border-top-left-radius: 0; }
-        .ai { background: var(--ai-bubble); border: 1px solid #d1d9ff; align-self: flex-start; border-top-left-radius: 0; }
+        /* Bubbles */
+        .bubble { max-width: 70%; padding: 8px 12px; border-radius: 8px; box-shadow: 0 1px 1px rgba(0,0,0,0.1); margin-bottom: 4px; font-size: 14px; position: relative; z-index: 10; }
+        .me { background: #d9fdd3; align-self: flex-end; border-top-right-radius: 0; }
+        .other { background: white; align-self: flex-start; border-top-left-radius: 0; }
+        .ai { background: #f3e8ff; border: 1px solid #d8b4fe; align-self: flex-start; border-top-left-radius: 0; }
 
-        .time-stamp { font-size: 10px; color: #999; float: right; margin-left: 10px; margin-top: 5px; }
-
-        /* Scrollbar schön machen */
-        ::-webkit-scrollbar { width: 6px; }
-        ::-webkit-scrollbar-thumb { background: #ced0d1; border-radius: 3px; }
-
-        /* Handy-Anpassung */
-        @media (max-width: 768px) {
-            .sidebar { display: none; }
-            .sidebar.active { display: flex; width: 100%; }
-            .chat-view { width: 100%; }
-            .chat-view.hidden { display: none; }
-        }
+        @media (max-width: 768px) { .sidebar { display: none; } }
     </style>
 </head>
 <body>
 
-    <div class="main-container">
-        <!-- LINKES FENSTER: FREUNDE & EINSTELLUNGEN -->
-        <div id="sidebarPanel" class="sidebar">
-            <!-- Mein Profil Header -->
-            <div class="bg-[#f0f2f5] p-3 flex justify-between items-center border-b border-gray-300">
-                <div class="w-10 h-10 bg-gray-300 rounded-full flex items-center justify-center text-white text-xl">👤</div>
-                <div class="flex gap-4 text-gray-500 text-lg">
-                    <i class="fa-solid fa-circle-notch"></i>
-                    <i class="fa-solid fa-message"></i>
-                    <i class="fa-solid fa-ellipsis-vertical"></i>
+    <div class="app-container">
+        <!-- Sidebar -->
+        <div class="sidebar">
+            <header class="bg-gray-100 p-3 flex justify-between items-center border-b">
+                <div class="w-10 h-10 bg-gray-300 rounded-full flex items-center justify-center text-white text-xl"><i class="fa-solid fa-user"></i></div>
+                <div class="flex gap-4 text-gray-500"><i class="fa-solid fa-circle-notch"></i><i class="fa-solid fa-message"></i></div>
+            </header>
+            
+            <div class="p-4 bg-emerald-50 border-b text-center">
+                <p class="text-[10px] uppercase font-bold text-emerald-600 mb-1">Deine ID</p>
+                <!-- WICHTIG: Hier wird die ID angezeigt -->
+                <h2 id="idDisplay" class="text-2xl font-black text-gray-800 tracking-wider">LÄDT...</h2>
+            </div>
+            
+            <div class="p-4 hover:bg-gray-50 cursor-pointer flex items-center gap-3 border-b bg-white">
+                <div class="w-12 h-12 bg-emerald-500 rounded-full flex items-center justify-center text-white"><i class="fa-solid fa-users"></i></div>
+                <div>
+                    <h3 class="font-bold text-gray-800">Globaler Chat</h3>
+                    <p class="text-xs text-gray-500">Öffentlicher Raum</p>
                 </div>
-            </div>
-
-            <!-- Suchleiste / ID Eingabe -->
-            <div class="p-3 border-b border-gray-100">
-                <div class="bg-[#f0f2f5] flex items-center rounded-lg px-3 py-2">
-                    <i class="fa-solid fa-magnifying-glass text-gray-400 mr-3"></i>
-                    <input type="text" id="friendId" placeholder="Freund-ID suchen..." class="bg-transparent outline-none text-sm w-full">
-                </div>
-                <button onclick="addFriend()" class="mt-2 w-full bg-emerald-500 text-white py-1 rounded text-sm font-bold shadow hover:bg-emerald-600">Hinzufügen</button>
-            </div>
-
-            <!-- Eigene ID Anzeige -->
-            <div class="p-4 bg-blue-50 text-center border-b border-blue-100">
-                <span class="text-xs font-bold text-blue-400 uppercase tracking-widest">Deine ID</span>
-                <div id="myIdDisplay" class="text-xl font-mono font-black text-blue-600">LÄDT...</div>
-            </div>
-
-            <!-- Freundesliste -->
-            <div id="friendsList" class="flex-1 overflow-y-auto">
-                <!-- Freunde erscheinen hier -->
             </div>
         </div>
 
-        <!-- RECHTES FENSTER: CHAT -->
-        <div id="chatPanel" class="chat-view">
-            <!-- Chat Header -->
-            <header class="bg-[#f0f2f5] p-3 flex items-center justify-between shadow-sm z-20">
-                <div class="flex items-center gap-3">
-                    <button class="md:hidden text-gray-500" onclick="showSidebar()"><i class="fa-solid fa-arrow-left"></i></button>
-                    <div class="w-10 h-10 bg-emerald-500 rounded-full flex items-center justify-center text-white"><i class="fa-solid fa-users"></i></div>
-                    <div>
-                        <h3 class="font-bold text-gray-800 text-sm">Globaler Chat</h3>
-                        <p class="text-xs text-gray-500 truncate">Alle Benutzer online</p>
-                    </div>
-                </div>
-                <div class="flex gap-6 text-gray-500 text-lg mr-4">
-                    <i class="fa-solid fa-video cursor-pointer hover:text-emerald-600"></i>
-                    <i class="fa-solid fa-phone cursor-pointer hover:text-emerald-600"></i>
-                    <i class="fa-solid fa-magnifying-glass border-l pl-4 border-gray-300"></i>
+        <!-- Chat -->
+        <div class="chat-view">
+            <header class="bg-gray-100 p-3 flex items-center shadow-sm z-20">
+                <div class="w-10 h-10 bg-emerald-500 rounded-full flex items-center justify-center text-white mr-3"><i class="fa-solid fa-rocket"></i></div>
+                <div class="flex-1">
+                    <h2 class="font-bold text-gray-800">CosmoChat</h2>
+                    <p class="text-xs text-emerald-600 font-bold">Online</p>
                 </div>
             </header>
 
-            <!-- Nachrichten -->
-            <div id="messages" class="flex-1 overflow-y-auto p-4 md:px-16 flex flex-col gap-1 z-10">
-                <!-- Chatverlauf -->
-            </div>
+            <div id="board" class="flex-1 overflow-y-auto p-4 flex flex-col gap-2 z-10"></div>
 
-            <!-- Eingabe -->
-            <footer class="bg-[#f0f2f5] p-3 flex items-center gap-2 z-20">
-                <button class="text-gray-500 text-2xl px-1 hover:text-gray-700"><i class="fa-regular fa-face-smile"></i></button>
-                <button class="text-gray-500 text-2xl px-1 hover:text-gray-700"><i class="fa-solid fa-paperclip"></i></button>
-                
-                <!-- KI Button -->
-                <button onclick="askAI()" class="w-10 h-10 bg-purple-600 hover:bg-purple-700 text-white rounded-full flex items-center justify-center shadow-md transition">
-                    <i class="fa-solid fa-robot"></i>
-                </button>
-
-                <div class="flex-1">
-                    <input type="text" id="msgInput" placeholder="Nachricht schreiben..." 
-                           class="w-full bg-white rounded-lg py-2 px-4 text-sm outline-none border-none shadow-sm focus:ring-1 focus:ring-emerald-500">
-                </div>
-                
-                <button onclick="sendMessage()" class="text-emerald-600 text-2xl px-2 hover:scale-110 transition"><i class="fa-solid fa-paper-plane"></i></button>
+            <footer class="bg-gray-100 p-2 flex items-center gap-2 z-20">
+                <button onclick="askAI()" class="w-10 h-10 bg-purple-600 text-white rounded-full hover:bg-purple-700 transition flex items-center justify-center shadow"><i class="fa-solid fa-robot"></i></button>
+                <input type="text" id="inp" placeholder="Nachricht schreiben..." class="flex-1 p-3 rounded-lg border-none outline-none focus:ring-1 focus:ring-emerald-500 bg-white">
+                <button onclick="send()" class="text-emerald-600 text-2xl px-2"><i class="fa-solid fa-paper-plane"></i></button>
             </footer>
         </div>
     </div>
 
     <script>
-        const socket = io();
-        const messagesDiv = document.getElementById('messages');
-        const msgInput = document.getElementById('msgInput');
-        const myIdDisplay = document.getElementById('myIdDisplay');
+        // Automatische Verbindung (Wichtig für Cloud Run)
+        const socket = io(); 
         
-        let myId = localStorage.getItem('cosmo_pro_id');
+        const board = document.getElementById('board');
+        const inp = document.getElementById('inp');
+        const idDisplay = document.getElementById('idDisplay');
+        
+        // Versuche alte ID zu laden
+        let myId = localStorage.getItem('cosmo_id_final');
 
-        // --- VERBINDUNG ---
+        // 1. Verbindung herstellen
         socket.on('connect', () => {
+            console.log("Verbunden mit Server!");
+            // Sende Anfrage für ID und Daten
             socket.emit('user_connect', { id: myId });
             socket.emit('load_history');
         });
 
-        socket.on('init_data', (data) => {
-            myId = data.id;
-            localStorage.setItem('cosmo_pro_id', myId);
-            myIdDisplay.innerText = myId;
-            // Hier könnten wir Freunde rendern, wenn wir sie vom Server bekommen
+        // 2. ID vom Server empfangen (Der Fix für "Lädt...")
+        socket.on('init_data', (d) => {
+            console.log("ID empfangen:", d.id);
+            myId = d.id;
+            localStorage.setItem('cosmo_id_final', myId);
+            idDisplay.textContent = myId; // Update UI
         });
 
-        // --- NACHRICHTEN ---
         socket.on('chat_history', (msgs) => {
-            messagesDiv.innerHTML = '';
-            msgs.forEach(m => renderMessage(m));
-            scrollToBottom();
+            board.innerHTML = '';
+            msgs.forEach(m => draw(m));
+            scroll();
         });
 
-        socket.on('receive_message', (msg) => {
-            renderMessage(msg);
-            scrollToBottom();
+        socket.on('receive_message', (m) => {
+            draw(m);
+            scroll();
         });
 
-        function sendMessage() {
-            const text = msgInput.value.trim();
-            if (!text) return;
-            socket.emit('send_message', { text: text });
-            msgInput.value = '';
+        function send() {
+            const t = inp.value.trim();
+            if(!t) return;
+            socket.emit('send_message', { text: t });
+            inp.value = '';
         }
 
         function askAI() {
-            const text = msgInput.value.trim();
-            if (!text) return alert("Schreibe erst eine Frage!");
-            socket.emit('ask_ai', { text: text });
-            msgInput.value = '';
+            const t = inp.value.trim();
+            if(!t) return alert("Frag erst etwas!");
+            socket.emit('ask_ai', { text: t });
+            inp.value = '';
         }
 
-        function renderMessage(msg) {
-            const isMe = msg.from_id === myId;
-            const isAI = msg.is_ai || msg.from_id === 'ai_bot';
-            
+        function draw(m) {
+            const isMe = m.from_id === myId;
+            const isAI = m.is_ai || m.from_id === 'ai_bot';
             const div = document.createElement('div');
-            div.className = `bubble ${isMe ? 'me' : isAI ? 'ai' : 'other'}`;
             
-            // Name anzeigen wenn nicht ich
-            let nameTag = '';
-            if (!isMe) {
-                const name = isAI ? 'CosmoAI 🤖' : 'User ' + msg.from_id;
-                const color = isAI ? 'text-purple-600' : 'text-orange-600';
-                nameTag = `<div class="text-[11px] font-bold ${color} mb-1">${name}</div>`;
-            }
-
+            div.className = `bubble ${isMe ? 'me' : isAI ? 'ai' : 'other'}`;
             div.innerHTML = `
-                ${nameTag}
-                <div>${msg.text}</div>
-                <div class="time-stamp">${msg.time} ${isMe ? '<i class="fa-solid fa-check-double text-blue-400"></i>' : ''}</div>
+                ${!isMe ? `<div class="text-[10px] font-bold ${isAI ? 'text-purple-600' : 'text-emerald-600'} mb-0.5">${isAI ? 'CosmoAI' : 'Nutzer ' + m.from_id}</div>` : ''}
+                <div class="break-words">${m.text}</div>
+                <div class="text-[9px] text-gray-500 text-right mt-1 italic">${m.time}</div>
             `;
-            messagesDiv.appendChild(div);
+            board.appendChild(div);
         }
 
-        function scrollToBottom() {
-            messagesDiv.scrollTop = messagesDiv.scrollHeight;
-        }
-
-        // --- HANDY NAVIGATION ---
-        function showSidebar() {
-            document.getElementById('sidebarPanel').classList.add('active');
-            document.getElementById('chatPanel').classList.add('hidden');
-        }
-
-        // Enter Taste
-        msgInput.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') sendMessage();
-        });
-
-        // Mobile Init
-        if (window.innerWidth <= 768) {
-            // Standardmäßig Chat anzeigen
-            document.getElementById('sidebarPanel').classList.remove('active');
-        }
+        function scroll() { board.scrollTop = board.scrollHeight; }
+        inp.onkeypress = (e) => { if(e.key === 'Enter') send(); };
     </script>
 </body>
 </html>
