@@ -8,386 +8,227 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
-        body { background-color: #f0f2f5; font-family: 'Segoe UI', sans-serif; height: 100vh; display: flex; overflow: hidden; }
+        /* WhatsApp-ähnliche Farben */
+        :root {
+            --bg-color: #dadbd3;
+            --chat-bg: #efeae2;
+            --sidebar-bg: #ffffff;
+            --my-bubble: #d9fdd3;
+            --other-bubble: #ffffff;
+            --ai-bubble: #f0f4ff;
+        }
+
+        body { background-color: var(--bg-color); font-family: -apple-system, sans-serif; height: 100vh; display: flex; overflow: hidden; }
         
-        /* Sidebar Design */
-        .sidebar { width: 350px; background: #ffffff; border-right: 1px solid #e9edef; display: flex; flex-direction: column; flex-shrink: 0; }
+        .main-container { width: 100%; height: 100%; display: flex; }
         
-        /* Chat Bereich */
-        .chat-area { flex: 1; display: flex; flex-direction: column; background: #efeae2; position: relative; }
-        .chat-area::before {
+        /* Sidebar (Links) */
+        .sidebar { width: 30%; min-width: 300px; background: var(--sidebar-bg); border-right: 1px solid #e0e0e0; display: flex; flex-direction: column; }
+        
+        /* Chat Bereich (Rechts) */
+        .chat-view { flex: 1; background: var(--chat-bg); position: relative; display: flex; flex-direction: column; }
+        
+        /* Hintergrundbild-Muster */
+        .chat-view::before {
             content: ""; position: absolute; width: 100%; height: 100%;
             background-image: url('https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png');
             opacity: 0.06; pointer-events: none;
         }
 
-        /* Sprechblasen */
-        .bubble { max-width: 70%; padding: 8px 12px; border-radius: 8px; position: relative; box-shadow: 0 1px 0.5px rgba(0,0,0,0.13); font-size: 14px; margin-bottom: 4px; }
-        .me { background: #d9fdd3; align-self: flex-end; border-top-right-radius: 0; }
-        .other { background: #ffffff; align-self: flex-start; border-top-left-radius: 0; }
-        
-        /* Status Punkt */
-        .dot { height: 10px; width: 10px; border-radius: 50%; display: inline-block; margin-right: 5px; }
-        .online { background-color: #22c55e; box-shadow: 0 0 5px #22c55e; }
-        .offline { background-color: #ef4444; }
+        /* Nachrichten-Bubbles */
+        .bubble { 
+            max-width: 65%; padding: 6px 10px; border-radius: 8px; font-size: 14.2px; line-height: 19px; 
+            box-shadow: 0 1px 0.5px rgba(0,0,0,0.13); margin-bottom: 4px; position: relative; z-index: 10;
+        }
+        .me { background: var(--my-bubble); align-self: flex-end; border-top-right-radius: 0; }
+        .other { background: var(--other-bubble); align-self: flex-start; border-top-left-radius: 0; }
+        .ai { background: var(--ai-bubble); border: 1px solid #d1d9ff; align-self: flex-start; border-top-left-radius: 0; }
 
-        /* Modal Overlay */
-        .modal-overlay { background: rgba(0,0,0,0.5); backdrop-filter: blur(2px); }
+        .time-stamp { font-size: 10px; color: #999; float: right; margin-left: 10px; margin-top: 5px; }
 
-        @media (max-width: 768px) { .sidebar { display: none; width: 100%; } .sidebar.active { display: flex; } .chat-area.hidden { display: none; } }
+        /* Scrollbar schön machen */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-thumb { background: #ced0d1; border-radius: 3px; }
+
+        /* Handy-Anpassung */
+        @media (max-width: 768px) {
+            .sidebar { display: none; }
+            .sidebar.active { display: flex; width: 100%; }
+            .chat-view { width: 100%; }
+            .chat-view.hidden { display: none; }
+        }
     </style>
 </head>
 <body>
 
-    <!-- SIDEBAR (LINKS) -->
-    <div id="sidebar" class="sidebar">
-        <!-- Header -->
-        <div class="bg-[#f0f2f5] p-3 flex justify-between items-center border-b border-gray-200">
-            <div class="flex items-center gap-3">
-                <div class="w-10 h-10 bg-gray-300 rounded-full flex items-center justify-center text-white font-bold text-lg"><i class="fa-solid fa-user"></i></div>
-                <div>
-                    <h2 class="font-bold text-gray-700 text-sm">Mein Profil</h2>
-                    <div id="myIdDisplay" class="text-emerald-600 font-mono text-xs font-black tracking-widest">ID: ------</div>
+    <div class="main-container">
+        <!-- LINKES FENSTER: FREUNDE & EINSTELLUNGEN -->
+        <div id="sidebarPanel" class="sidebar">
+            <!-- Mein Profil Header -->
+            <div class="bg-[#f0f2f5] p-3 flex justify-between items-center border-b border-gray-300">
+                <div class="w-10 h-10 bg-gray-300 rounded-full flex items-center justify-center text-white text-xl">👤</div>
+                <div class="flex gap-4 text-gray-500 text-lg">
+                    <i class="fa-solid fa-circle-notch"></i>
+                    <i class="fa-solid fa-message"></i>
+                    <i class="fa-solid fa-ellipsis-vertical"></i>
                 </div>
             </div>
-            <div class="flex gap-3 text-gray-500">
-                <i class="fa-solid fa-circle-notch"></i>
-                <i class="fa-solid fa-message"></i>
-                <i class="fa-solid fa-ellipsis-vertical"></i>
-            </div>
-        </div>
 
-        <!-- Mein Name Setzen -->
-        <div class="p-3 bg-white border-b border-gray-100">
-            <label class="text-[10px] uppercase font-bold text-gray-400">Dein Name</label>
-            <div class="flex gap-2 mt-1">
-                <input type="text" id="myNameInput" placeholder="Wie heißt du?" class="flex-1 bg-gray-100 rounded-lg px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-emerald-500">
-                <button onclick="setName()" class="bg-blue-500 text-white px-3 rounded-lg text-xs font-bold hover:bg-blue-600 transition">Speichern</button>
-            </div>
-        </div>
-
-        <!-- Freund hinzufügen -->
-        <div class="p-3 bg-gray-50 border-b border-gray-200">
-            <label class="text-[10px] uppercase font-bold text-gray-400">Neuen Freund adden</label>
-            <div class="flex gap-2 mt-1">
-                <input type="text" id="friendIdInp" placeholder="6-stellige ID..." class="flex-1 bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-emerald-500">
-                <button onclick="sendInvite()" class="bg-emerald-500 text-white px-3 rounded-lg text-xs font-bold hover:bg-emerald-600 transition"><i class="fa-solid fa-user-plus"></i></button>
-            </div>
-        </div>
-
-        <!-- Listen -->
-        <div class="flex-1 overflow-y-auto p-2 space-y-4">
-            
-            <!-- Freundschaftsanfragen -->
-            <div id="requestsArea" class="hidden">
-                <h3 class="text-xs font-bold text-orange-500 uppercase px-2 mb-1">Anfragen</h3>
-                <div id="requestsList" class="space-y-2"></div>
-            </div>
-
-            <!-- Meine Freunde -->
-            <div>
-                <h3 class="text-xs font-bold text-gray-400 uppercase px-2 mb-1">Meine Freunde</h3>
-                <div id="friendsList" class="space-y-2">
-                    <!-- Freunde werden hier geladen -->
-                    <div class="p-4 text-center text-gray-400 text-xs italic">Noch keine Freunde hinzugefügt.</div>
+            <!-- Suchleiste / ID Eingabe -->
+            <div class="p-3 border-b border-gray-100">
+                <div class="bg-[#f0f2f5] flex items-center rounded-lg px-3 py-2">
+                    <i class="fa-solid fa-magnifying-glass text-gray-400 mr-3"></i>
+                    <input type="text" id="friendId" placeholder="Freund-ID suchen..." class="bg-transparent outline-none text-sm w-full">
                 </div>
+                <button onclick="addFriend()" class="mt-2 w-full bg-emerald-500 text-white py-1 rounded text-sm font-bold shadow hover:bg-emerald-600">Hinzufügen</button>
+            </div>
+
+            <!-- Eigene ID Anzeige -->
+            <div class="p-4 bg-blue-50 text-center border-b border-blue-100">
+                <span class="text-xs font-bold text-blue-400 uppercase tracking-widest">Deine ID</span>
+                <div id="myIdDisplay" class="text-xl font-mono font-black text-blue-600">LÄDT...</div>
+            </div>
+
+            <!-- Freundesliste -->
+            <div id="friendsList" class="flex-1 overflow-y-auto">
+                <!-- Freunde erscheinen hier -->
             </div>
         </div>
-    </div>
 
-    <!-- CHAT BEREICH (RECHTS) -->
-    <div id="chatArea" class="chat-area">
-        <!-- Chat Header -->
-        <header class="bg-[#f0f2f5] p-3 flex items-center justify-between border-b border-gray-200 z-10">
-            <div class="flex items-center gap-3">
-                <button onclick="toggleMobile()" class="md:hidden text-gray-500"><i class="fa-solid fa-arrow-left"></i></button>
-                <div class="w-10 h-10 bg-emerald-500 rounded-full flex items-center justify-center text-white"><i class="fa-solid fa-user"></i></div>
-                <div>
-                    <h3 id="chatTitle" class="font-bold text-gray-800 text-sm">Wähle einen Chat</h3>
-                    <p class="text-[10px] text-gray-500">Klicke links auf 'Chatten'</p>
+        <!-- RECHTES FENSTER: CHAT -->
+        <div id="chatPanel" class="chat-view">
+            <!-- Chat Header -->
+            <header class="bg-[#f0f2f5] p-3 flex items-center justify-between shadow-sm z-20">
+                <div class="flex items-center gap-3">
+                    <button class="md:hidden text-gray-500" onclick="showSidebar()"><i class="fa-solid fa-arrow-left"></i></button>
+                    <div class="w-10 h-10 bg-emerald-500 rounded-full flex items-center justify-center text-white"><i class="fa-solid fa-users"></i></div>
+                    <div>
+                        <h3 class="font-bold text-gray-800 text-sm">Globaler Chat</h3>
+                        <p class="text-xs text-gray-500 truncate">Alle Benutzer online</p>
+                    </div>
                 </div>
-            </div>
-            <div class="flex gap-5 text-emerald-600 text-lg opacity-50" id="headerIcons">
-                <i class="fa-solid fa-video"></i>
-                <i class="fa-solid fa-phone"></i>
-                <i class="fa-solid fa-magnifying-glass text-gray-400"></i>
-            </div>
-        </header>
+                <div class="flex gap-6 text-gray-500 text-lg mr-4">
+                    <i class="fa-solid fa-video cursor-pointer hover:text-emerald-600"></i>
+                    <i class="fa-solid fa-phone cursor-pointer hover:text-emerald-600"></i>
+                    <i class="fa-solid fa-magnifying-glass border-l pl-4 border-gray-300"></i>
+                </div>
+            </header>
 
-        <!-- Nachrichten -->
-        <div id="messages" class="flex-1 overflow-y-auto p-4 flex flex-col gap-1 z-0"></div>
-
-        <!-- Input -->
-        <footer class="bg-[#f0f2f5] p-3 flex items-center gap-2 z-10">
-            <button class="text-gray-500 text-xl px-2"><i class="fa-regular fa-face-smile"></i></button>
-            <button onclick="askAI()" class="w-10 h-10 bg-indigo-500 hover:bg-indigo-600 text-white rounded-full flex items-center justify-center shadow transition shrink-0" title="KI fragen">
-                <i class="fa-solid fa-robot"></i>
-            </button>
-            <input type="text" id="msgInput" placeholder="Nachricht schreiben..." class="flex-1 bg-white rounded-lg py-2 px-4 text-sm outline-none border-none focus:ring-1 focus:ring-emerald-500">
-            <button onclick="sendMessage()" class="text-emerald-600 text-xl px-3 hover:scale-110 transition"><i class="fa-solid fa-paper-plane"></i></button>
-        </footer>
-    </div>
-
-    <!-- MODAL FÜR LÖSCHEN -->
-    <div id="deleteModal" class="modal-overlay fixed inset-0 hidden flex items-center justify-center z-50">
-        <div class="bg-white rounded-xl shadow-2xl p-6 w-80 text-center">
-            <div class="w-12 h-12 bg-red-100 text-red-500 rounded-full flex items-center justify-center mx-auto mb-4 text-xl">
-                <i class="fa-solid fa-trash"></i>
+            <!-- Nachrichten -->
+            <div id="messages" class="flex-1 overflow-y-auto p-4 md:px-16 flex flex-col gap-1 z-10">
+                <!-- Chatverlauf -->
             </div>
-            <h3 class="font-bold text-gray-800 text-lg mb-2">Freund entfernen?</h3>
-            <p id="deleteText" class="text-sm text-gray-500 mb-6">Möchtest du diesen Freund wirklich aus deiner Liste löschen?</p>
-            <div class="flex gap-3 justify-center">
-                <button onclick="closeModal()" class="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg font-bold text-sm hover:bg-gray-300">Nein, abbrechen</button>
-                <button onclick="confirmDelete()" class="px-4 py-2 bg-red-500 text-white rounded-lg font-bold text-sm hover:bg-red-600">Ja, entfernen</button>
-            </div>
+
+            <!-- Eingabe -->
+            <footer class="bg-[#f0f2f5] p-3 flex items-center gap-2 z-20">
+                <button class="text-gray-500 text-2xl px-1 hover:text-gray-700"><i class="fa-regular fa-face-smile"></i></button>
+                <button class="text-gray-500 text-2xl px-1 hover:text-gray-700"><i class="fa-solid fa-paperclip"></i></button>
+                
+                <!-- KI Button -->
+                <button onclick="askAI()" class="w-10 h-10 bg-purple-600 hover:bg-purple-700 text-white rounded-full flex items-center justify-center shadow-md transition">
+                    <i class="fa-solid fa-robot"></i>
+                </button>
+
+                <div class="flex-1">
+                    <input type="text" id="msgInput" placeholder="Nachricht schreiben..." 
+                           class="w-full bg-white rounded-lg py-2 px-4 text-sm outline-none border-none shadow-sm focus:ring-1 focus:ring-emerald-500">
+                </div>
+                
+                <button onclick="sendMessage()" class="text-emerald-600 text-2xl px-2 hover:scale-110 transition"><i class="fa-solid fa-paper-plane"></i></button>
+            </footer>
         </div>
     </div>
 
     <script>
-        // --- SETUP ---
-        // Automatische Server-Erkennung (funktioniert lokal & cloud)
-        const socket = io(); 
-        let myId = localStorage.getItem('cosmo_pro_id');
-        let myName = localStorage.getItem('cosmo_pro_name') || 'Unbekannt';
-        let currentRoom = null;
-        let friendToDeleteId = null;
-
-        // UI Elemente
-        const friendsListEl = document.getElementById('friendsList');
-        const requestsListEl = document.getElementById('requestsList');
-        const requestsArea = document.getElementById('requestsArea');
-        const msgContainer = document.getElementById('messages');
+        const socket = io();
+        const messagesDiv = document.getElementById('messages');
+        const msgInput = document.getElementById('msgInput');
         const myIdDisplay = document.getElementById('myIdDisplay');
-        const myNameInput = document.getElementById('myNameInput');
+        
+        let myId = localStorage.getItem('cosmo_pro_id');
 
-        // --- SOCKET EVENTS ---
+        // --- VERBINDUNG ---
         socket.on('connect', () => {
             socket.emit('user_connect', { id: myId });
-            myNameInput.value = myName;
+            socket.emit('load_history');
         });
 
         socket.on('init_data', (data) => {
             myId = data.id;
             localStorage.setItem('cosmo_pro_id', myId);
-            myIdDisplay.textContent = myId;
-            
-            // Lade Listen
-            renderFriends(data.friends || []);
-            renderRequests(data.requests || []);
+            myIdDisplay.innerText = myId;
+            // Hier könnten wir Freunde rendern, wenn wir sie vom Server bekommen
         });
 
-        socket.on('friend_request', (req) => {
-            // Neue Anfrage live anzeigen
-            addRequestItem(req);
-            requestsArea.classList.remove('hidden');
-        });
-
-        socket.on('friend_added', (friend) => {
-            // Neuen Freund live anzeigen
-            addFriendItem(friend);
-        });
-
-        socket.on('new_message', (msg) => {
-            if (currentRoom === msg.room) {
-                renderMessage(msg);
-                scrollToBottom();
-            }
-        });
-
+        // --- NACHRICHTEN ---
         socket.on('chat_history', (msgs) => {
-            msgContainer.innerHTML = '';
+            messagesDiv.innerHTML = '';
             msgs.forEach(m => renderMessage(m));
             scrollToBottom();
         });
 
-        // --- FUNKTIONEN ---
-
-        function setName() {
-            const name = myNameInput.value.trim();
-            if (name) {
-                myName = name;
-                localStorage.setItem('cosmo_pro_name', name);
-                socket.emit('set_name', { name: name });
-                alert("Name gespeichert!");
-            }
-        }
-
-        function sendInvite() {
-            const id = document.getElementById('friendIdInp').value.trim();
-            if (id.length === 6 && id !== myId) {
-                socket.emit('invite_friend', { friend_id: id });
-                document.getElementById('friendIdInp').value = '';
-                alert("Anfrage gesendet!");
-            } else {
-                alert("Bitte eine gültige 6-stellige ID eingeben.");
-            }
-        }
-
-        // Anfrage Rendern
-        function renderRequests(list) {
-            requestsListEl.innerHTML = '';
-            if (list.length > 0) requestsArea.classList.remove('hidden');
-            list.forEach(req => addRequestItem(req));
-        }
-
-        function addRequestItem(req) {
-            const div = document.createElement('div');
-            div.className = "bg-white p-3 rounded-xl border border-orange-200 shadow-sm";
-            div.innerHTML = `
-                <div class="flex justify-between items-center mb-2">
-                    <span class="font-bold text-sm text-gray-700">${req.name}</span>
-                    <span class="text-xs text-gray-400 font-mono">${req.id}</span>
-                </div>
-                <div class="flex gap-2">
-                    <button onclick="acceptRequest('${req.id}')" class="flex-1 bg-emerald-500 text-white py-1 rounded text-xs font-bold hover:bg-emerald-600">Annehmen</button>
-                    <button onclick="declineRequest('${req.id}')" class="flex-1 bg-gray-200 text-gray-600 py-1 rounded text-xs font-bold hover:bg-gray-300">Ablehnen</button>
-                </div>
-            `;
-            requestsListEl.appendChild(div);
-        }
-
-        function acceptRequest(id) {
-            socket.emit('accept_request', { friend_id: id });
-            // Anfrage aus UI entfernen (wird durch Reload oder Logik sauberer, hier Quick-Fix)
-            requestsListEl.innerHTML = ''; 
-            requestsArea.classList.add('hidden');
-        }
-
-        // Freunde Rendern
-        function renderFriends(list) {
-            friendsListEl.innerHTML = '';
-            if (list.length === 0) {
-                friendsListEl.innerHTML = '<div class="p-4 text-center text-gray-400 text-xs italic">Noch keine Freunde.</div>';
-                return;
-            }
-            list.forEach(f => addFriendItem(f));
-        }
-
-        function addFriendItem(f) {
-            // Falls der Platzhalter noch da ist, weg damit
-            if(friendsListEl.innerText.includes("Noch keine Freunde")) friendsListEl.innerHTML = '';
-
-            const isOnline = f.online ? 'online' : 'offline';
-            const statusText = f.online ? 'Online' : 'Offline';
-
-            const div = document.createElement('div');
-            div.id = `friend-${f.id}`;
-            div.className = "bg-white p-3 rounded-xl border border-gray-200 hover:shadow-md transition shadow-sm mb-2";
-            div.innerHTML = `
-                <div class="flex justify-between items-start mb-3">
-                    <div>
-                        <div class="font-bold text-gray-800 text-sm">${f.name}</div>
-                        <div class="text-[10px] text-gray-400 font-mono tracking-wide">ID: ${f.id}</div>
-                    </div>
-                    <div class="bg-gray-100 px-2 py-1 rounded text-[10px] font-bold text-gray-600 flex items-center">
-                        <span class="dot ${isOnline}"></span> ${statusText}
-                    </div>
-                </div>
-                <div class="flex gap-2">
-                    <button onclick="startChat('${f.id}', '${f.name}')" class="flex-1 bg-emerald-100 text-emerald-700 py-1.5 rounded-lg text-xs font-bold hover:bg-emerald-200 transition flex items-center justify-center gap-1">
-                        <i class="fa-regular fa-comment-dots"></i> Chatten
-                    </button>
-                    <button onclick="openDeleteModal('${f.id}', '${f.name}')" class="px-3 bg-red-50 text-red-500 py-1.5 rounded-lg text-xs font-bold hover:bg-red-100 transition">
-                        Entfernen
-                    </button>
-                </div>
-            `;
-            friendsListEl.appendChild(div);
-        }
-
-        // Chat Logik
-        function startChat(fid, fname) {
-            currentRoom = [myId, fid].sort().join('-'); // Eindeutige Raum-ID
-            socket.emit('load_chat', { room: currentRoom });
-            
-            document.getElementById('chatTitle').textContent = fname;
-            document.getElementById('headerIcons').classList.remove('opacity-50');
-            
-            // Mobile: Sidebar ausblenden
-            if(window.innerWidth <= 768) {
-                document.getElementById('sidebar').classList.remove('active');
-                document.getElementById('chatArea').classList.remove('hidden');
-            }
-        }
+        socket.on('receive_message', (msg) => {
+            renderMessage(msg);
+            scrollToBottom();
+        });
 
         function sendMessage() {
-            const input = document.getElementById('msgInput');
-            const text = input.value.trim();
-            if(text && currentRoom) {
-                socket.emit('send_message', { text: text, room: currentRoom });
-                input.value = '';
-            }
+            const text = msgInput.value.trim();
+            if (!text) return;
+            socket.emit('send_message', { text: text });
+            msgInput.value = '';
         }
 
         function askAI() {
-            const input = document.getElementById('msgInput');
-            const text = input.value.trim();
-            if(text && currentRoom) {
-                socket.emit('send_message', { text: "@ai " + text, room: currentRoom });
-                input.value = '';
-            } else {
-                alert("Öffne erst einen Chat und schreibe eine Frage!");
-            }
+            const text = msgInput.value.trim();
+            if (!text) return alert("Schreibe erst eine Frage!");
+            socket.emit('ask_ai', { text: text });
+            msgInput.value = '';
         }
 
         function renderMessage(msg) {
             const isMe = msg.from_id === myId;
-            const isAI = msg.from_id === 'ai_bot';
+            const isAI = msg.is_ai || msg.from_id === 'ai_bot';
             
             const div = document.createElement('div');
-            div.className = `flex w-full ${isMe ? 'justify-end' : 'justify-start'} mb-1`;
+            div.className = `bubble ${isMe ? 'me' : isAI ? 'ai' : 'other'}`;
             
-            const bubbleClass = isMe ? 'me' : (isAI ? 'bubble-ai' : 'other');
-            
+            // Name anzeigen wenn nicht ich
+            let nameTag = '';
+            if (!isMe) {
+                const name = isAI ? 'CosmoAI 🤖' : 'User ' + msg.from_id;
+                const color = isAI ? 'text-purple-600' : 'text-orange-600';
+                nameTag = `<div class="text-[11px] font-bold ${color} mb-1">${name}</div>`;
+            }
+
             div.innerHTML = `
-                <div class="bubble ${bubbleClass}">
-                    ${isAI ? '<div class="text-[10px] font-bold text-purple-600 mb-1">🤖 CosmoAI</div>' : ''}
-                    <div class="text-gray-800">${msg.text}</div>
-                    <div class="text-[9px] text-gray-400 text-right mt-1 flex justify-end items-center gap-1">
-                        ${msg.time} ${isMe ? '<i class="fa-solid fa-check-double text-blue-400"></i>' : ''}
-                    </div>
-                </div>
+                ${nameTag}
+                <div>${msg.text}</div>
+                <div class="time-stamp">${msg.time} ${isMe ? '<i class="fa-solid fa-check-double text-blue-400"></i>' : ''}</div>
             `;
-            msgContainer.appendChild(div);
+            messagesDiv.appendChild(div);
         }
 
         function scrollToBottom() {
-            msgContainer.scrollTop = msgContainer.scrollHeight;
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
         }
 
-        // Löschen Modal
-        function openDeleteModal(fid, fname) {
-            friendToDeleteId = fid;
-            document.getElementById('deleteText').innerText = `Möchtest du ${fname} wirklich entfernen?`;
-            document.getElementById('deleteModal').classList.remove('hidden');
-        }
-
-        function closeModal() {
-            document.getElementById('deleteModal').classList.add('hidden');
-            friendToDeleteId = null;
-        }
-
-        function confirmDelete() {
-            if(friendToDeleteId) {
-                socket.emit('remove_friend', { friend_id: friendToDeleteId });
-                // Freund aus UI entfernen
-                const el = document.getElementById(`friend-${friendToDeleteId}`);
-                if(el) el.remove();
-            }
-            closeModal();
-        }
-
-        // Mobile View
-        function toggleMobile() {
-            document.getElementById('sidebar').classList.add('active');
-            document.getElementById('chatArea').classList.add('hidden');
+        // --- HANDY NAVIGATION ---
+        function showSidebar() {
+            document.getElementById('sidebarPanel').classList.add('active');
+            document.getElementById('chatPanel').classList.add('hidden');
         }
 
         // Enter Taste
-        document.getElementById('msgInput').addEventListener('keypress', (e) => {
-            if(e.key === 'Enter') sendMessage();
+        msgInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') sendMessage();
         });
 
+        // Mobile Init
+        if (window.innerWidth <= 768) {
+            // Standardmäßig Chat anzeigen
+            document.getElementById('sidebarPanel').classList.remove('active');
+        }
     </script>
 </body>
 </html>
