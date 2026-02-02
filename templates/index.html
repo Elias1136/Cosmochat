@@ -3,184 +3,84 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>CosmoChat Professional</title>
-    <!-- Web-Technologien: Socket.io, Tailwind CSS, FontAwesome -->
+    <title>CosmoChat Pro</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
-        :root {
-            --wa-bg: #efeae2;
-            --wa-header: #f0f2f5;
-            --wa-green: #00a884;
-            --wa-bubble-me: #d9fdd3;
-            --wa-bubble-other: #ffffff;
-        }
-
-        body { background-color: #dadbd3; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
-        
-        /* WhatsApp-Style Container */
-        .app-shell { height: 100vh; display: flex; overflow: hidden; }
-        .side-panel { width: 30%; background: #ffffff; border-right: 1px solid #e9edef; display: flex; flex-direction: column; }
-        
-        .chat-viewport { flex: 1; display: flex; flex-direction: column; background: var(--wa-bg); position: relative; }
-        .chat-viewport::after {
+        :root { --wa-bg: #efeae2; --wa-header: #f0f2f5; --wa-bubble-me: #d9fdd3; --wa-bubble-other: #ffffff; }
+        body { background-color: #dadbd3; font-family: -apple-system, sans-serif; height: 100vh; overflow: hidden; }
+        .shell { height: 100vh; display: flex; overflow: hidden; }
+        .sidebar { width: 30%; background: #ffffff; border-right: 1px solid #e9edef; display: flex; flex-direction: column; }
+        .viewport { flex: 1; display: flex; flex-direction: column; background: var(--wa-bg); position: relative; }
+        .viewport::after {
             content: ""; position: absolute; top:0; left:0; width: 100%; height: 100%;
             background-image: url('https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png');
             opacity: 0.06; pointer-events: none;
         }
-
-        /* Message Bubble Design */
-        .bubble { 
-            max-width: 65%; padding: 6px 10px; border-radius: 8px; font-size: 14.5px; line-height: 19px;
-            position: relative; box-shadow: 0 1px 0.5px rgba(0,0,0,0.13); z-index: 10;
-        }
-        .bubble-me { background: var(--wa-bubble-me); align-self: flex-end; border-top-right-radius: 0; }
-        .bubble-other { background: var(--wa-bubble-other); align-self: flex-start; border-top-left-radius: 0; }
-        .bubble-ai { background: #f0f4ff; border: 1px solid #d1d9ff; align-self: flex-start; }
-
-        @media (max-width: 768px) { .side-panel { display: none; } .chat-viewport { width: 100%; } }
+        .bubble { max-width: 65%; padding: 7px 11px; border-radius: 8px; font-size: 14.5px; box-shadow: 0 1px 0.5px rgba(0,0,0,0.13); z-index: 10; }
+        .me { background: var(--wa-bubble-me); align-self: flex-end; border-top-right-radius: 0; }
+        .other { background: var(--wa-bubble-other); align-self: flex-start; border-top-left-radius: 0; }
+        .ai { background: #f0f4ff; border: 1px solid #d1d9ff; align-self: flex-start; border-top-left-radius: 0; }
+        @media (max-width: 768px) { .sidebar { display: none; } .viewport { width: 100%; } }
     </style>
 </head>
 <body class="antialiased">
-    <div class="app-shell">
-        <!-- Sidebar: Identität & Status -->
-        <aside class="side-panel">
+    <div class="shell">
+        <aside class="sidebar">
             <header class="bg-[#f0f2f5] p-3 flex justify-between items-center shrink-0">
-                <div class="w-10 h-10 bg-gray-400 rounded-full flex items-center justify-center text-white text-xl">
-                    <i class="fa-solid fa-circle-user"></i>
-                </div>
-                <div class="flex gap-5 text-gray-500">
-                    <i class="fa-solid fa-circle-notch"></i>
-                    <i class="fa-solid fa-message"></i>
-                    <i class="fa-solid fa-ellipsis-vertical"></i>
-                </div>
+                <div class="w-10 h-10 bg-gray-400 rounded-full flex items-center justify-center text-white text-xl"><i class="fa-solid fa-user-circle"></i></div>
+                <div class="flex gap-6 text-gray-500"><i class="fa-solid fa-message"></i><i class="fa-solid fa-ellipsis-vertical"></i></div>
             </header>
-            
             <div class="p-4 border-b hover:bg-gray-50 cursor-pointer flex items-center gap-4 bg-white">
-                <div class="w-12 h-12 bg-emerald-500 rounded-full flex items-center justify-center text-white text-2xl shadow-sm">
-                    <i class="fa-solid fa-shuttle-space"></i>
-                </div>
-                <div class="flex-1 overflow-hidden">
-                    <div class="flex justify-between">
-                        <h3 class="font-semibold text-gray-800">Cosmo Global Lounge</h3>
-                        <span class="text-[10px] text-gray-400 font-bold">LIVE</span>
-                    </div>
-                    <p class="text-xs text-gray-500 truncate italic">Ende-zu-Ende verschlüsselt</p>
+                <div class="w-12 h-12 bg-emerald-500 rounded-full flex items-center justify-center text-white text-2xl"><i class="fa-solid fa-shuttle-space"></i></div>
+                <div class="flex-1">
+                    <h3 class="font-bold text-gray-800">Globaler Chat</h3>
+                    <p class="text-xs text-emerald-600 font-bold">SYSTEM ONLINE</p>
                 </div>
             </div>
-
-            <div class="mt-auto p-8 text-center bg-gray-50 border-t">
-                <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Deine Secure ID</p>
-                <h2 id="idDisplay" class="text-2xl font-black text-emerald-600 tracking-tighter italic">------</h2>
+            <div class="mt-auto p-10 text-center bg-slate-50 border-t">
+                <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Deine Secure ID</p>
+                <h2 id="idDisplay" class="text-3xl font-black text-emerald-600 italic">------</h2>
             </div>
         </aside>
 
-        <!-- Chat Main Viewport -->
-        <main class="chat-viewport z-10">
+        <main class="viewport z-10">
             <header class="bg-[#f0f2f5] p-3 flex items-center shadow-sm z-20">
-                <div class="w-10 h-10 bg-emerald-500 rounded-full flex items-center justify-center text-white mr-3 shadow-sm">
-                    <i class="fa-solid fa-shuttle-space"></i>
-                </div>
-                <div class="flex-1">
-                    <h2 class="font-semibold text-sm text-gray-800">CosmoChat Enterprise</h2>
-                    <p class="text-[10px] text-emerald-600 font-bold uppercase tracking-wider">Online</p>
-                </div>
-                <div class="flex gap-6 text-gray-500 mr-2 text-lg">
-                    <i class="fa-solid fa-video"></i>
-                    <i class="fa-solid fa-phone"></i>
-                    <i class="fa-solid fa-magnifying-glass border-l pl-4 border-gray-300"></i>
-                </div>
+                <div class="w-10 h-10 bg-emerald-500 rounded-full flex items-center justify-center text-white mr-3"><i class="fa-solid fa-shuttle-space"></i></div>
+                <div class="flex-1"><h2 class="font-bold text-sm text-gray-800">CosmoChat Global</h2><p class="text-[10px] text-emerald-600 font-black">Live</p></div>
+                <div class="flex gap-6 text-gray-500 text-lg"><i class="fa-solid fa-video"></i><i class="fa-solid fa-phone"></i></div>
             </header>
-
-            <div id="messageBoard" class="flex-1 overflow-y-auto p-4 md:px-24 flex flex-col gap-1.5 z-20">
-                <!-- Dynamische Chat-Inhalte -->
-            </div>
-
-            <footer class="bg-[#f0f2f5] p-2.5 flex items-center gap-2 z-30">
-                <button class="text-gray-500 px-2 text-xl"><i class="fa-regular fa-face-smile"></i></button>
-                <button class="text-gray-500 px-1 text-xl"><i class="fa-solid fa-plus"></i></button>
-                
-                <!-- Gemini AI-Interface Button -->
-                <button onclick="requestAIResponse()" title="Gemini AI Assistent" class="w-10 h-10 bg-indigo-500 text-white rounded-full flex items-center justify-center shadow-lg hover:bg-indigo-600 transition active:scale-90 shrink-0">
-                    <i class="fa-solid fa-robot"></i>
-                </button>
-
-                <div class="flex-1">
-                    <input type="text" id="userInput" placeholder="Nachricht schreiben" 
-                           class="w-full bg-white rounded-lg py-2.5 px-4 text-[14.5px] outline-none border-none shadow-sm placeholder:text-gray-400">
-                </div>
-                
-                <button onclick="dispatchMessage()" class="text-emerald-600 px-3 text-2xl active:scale-90 transition">
-                    <i class="fa-solid fa-paper-plane"></i>
-                </button>
+            <div id="board" class="flex-1 overflow-y-auto p-5 md:px-24 flex flex-col gap-2 z-20"></div>
+            <footer class="bg-[#f0f2f5] p-3 flex items-center gap-3 z-30">
+                <button class="text-gray-500 text-2xl px-1"><i class="fa-regular fa-face-smile"></i></button>
+                <button onclick="askAI()" class="w-11 h-11 bg-indigo-500 text-white rounded-full flex items-center justify-center shadow-lg hover:bg-indigo-600 shrink-0"><i class="fa-solid fa-robot"></i></button>
+                <div class="flex-1"><input type="text" id="inp" placeholder="Nachricht schreiben" class="w-full bg-white rounded-xl py-3 px-5 text-sm outline-none border-none"></div>
+                <button onclick="send()" class="text-emerald-600 px-4 text-2xl"><i class="fa-solid fa-paper-plane"></i></button>
             </footer>
         </main>
     </div>
-
     <script>
-        // Automatische Server-URL Erkennung
         const socket = io();
-        const board = document.getElementById('messageBoard');
-        const input = document.getElementById('userInput');
-        const idBadge = document.getElementById('idDisplay');
-
-        let myId = localStorage.getItem('cosmo_id_v5');
-
-        socket.on('connect', () => {
-            socket.emit('user_connect', { id: myId });
-            socket.emit('load_history');
-        });
-
-        socket.on('init_data', (d) => {
-            myId = d.id;
-            localStorage.setItem('cosmo_id_v5', d.id);
-            idBadge.textContent = d.id;
-        });
-
-        socket.on('chat_history', (msgs) => {
-            board.innerHTML = '';
-            msgs.forEach(m => render(m));
-            syncScroll();
-        });
-
-        socket.on('receive_message', (m) => {
-            render(m);
-            syncScroll();
-        });
-
-        function dispatchMessage() {
-            const val = input.value.trim();
-            if(!val) return;
-            socket.emit('send_message', { text: val });
-            input.value = '';
-        }
-
-        function requestAIResponse() {
-            const val = input.value.trim();
-            if(!val) return alert("Bitte geben Sie zuerst Ihre Frage ein.");
-            socket.emit('ask_ai', { text: val });
-            input.value = '';
-        }
-
-        function render(m) {
+        const board = document.getElementById('board');
+        const inp = document.getElementById('inp');
+        let myId = localStorage.getItem('cosmo_secure_id');
+        socket.on('connect', () => { socket.emit('user_connect', { id: myId }); socket.emit('load_history'); });
+        socket.on('init_data', (d) => { myId = d.id; localStorage.setItem('cosmo_secure_id', d.id); document.getElementById('idDisplay').textContent = d.id; });
+        socket.on('chat_history', (msgs) => { board.innerHTML = ''; msgs.forEach(m => draw(m)); scroll(); });
+        socket.on('receive_message', (m) => { draw(m); scroll(); });
+        function send() { if(inp.value.trim()){ socket.emit('send_message', { text: inp.value }); inp.value = ''; } }
+        function askAI() { if(inp.value.trim()){ socket.emit('ask_ai', { text: inp.value }); inp.value = ''; } else alert("Frag erst etwas."); }
+        function draw(m) {
             const isMe = m.from_id === myId;
             const isAI = m.is_ai || m.from_id === 'ai_bot';
-            const node = document.createElement('div');
-            node.className = `bubble ${isMe ? 'bubble-me' : (isAI ? 'bubble-ai' : 'bubble-other')}`;
-            
-            node.innerHTML = `
-                ${!isMe ? `<div class="text-[10px] font-bold text-emerald-600 mb-0.5">${isAI ? 'CosmoAI' : 'Nutzer ' + m.from_id}</div>` : ''}
-                <div class="text-gray-800 break-words">${m.text}</div>
-                <div class="text-[9px] text-gray-400 text-right mt-1 font-semibold italic">
-                    ${m.time} ${isMe ? '<i class="fa-solid fa-check-double text-sky-400 ml-1"></i>' : ''}
-                </div>
-            `;
-            board.appendChild(node);
+            const d = document.createElement('div');
+            d.className = `bubble ${isMe ? 'me' : (isAI ? 'ai' : 'other')}`;
+            d.innerHTML = `${!isMe ? `<div class="text-[10px] font-black text-emerald-600 mb-0.5">${isAI ? 'CosmoAI' : 'Nutzer ' + m.from_id}</div>` : ''}<div class="text-gray-800 break-words">${m.text}</div><div class="text-[9px] text-gray-400 text-right mt-1 italic">${m.time}</div>`;
+            board.appendChild(d);
         }
-
-        function syncScroll() { board.scrollTop = board.scrollHeight; }
-        input.onkeypress = (e) => { if(e.key === 'Enter') dispatchMessage(); };
+        function scroll() { board.scrollTop = board.scrollHeight; }
+        inp.onkeypress = (e) => { if(e.key === 'Enter') send(); };
     </script>
 </body>
 </html>
