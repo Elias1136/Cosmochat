@@ -8,8 +8,10 @@ from datetime import datetime
 import time 
 
 app = Flask(__name__)
+# Erlaubt dem Browser, Daten zu laden
 CORS(app) 
 app.config['SECRET_KEY'] = 'dein-super-geheimer-schluessel-fuer-sessions'
+# Erlaubt Socket-Verbindungen von überall
 socketio = SocketIO(app, cors_allowed_origins="*") 
 
 DATA_FILE = 'cosmochat_data_v2.json' 
@@ -55,6 +57,7 @@ def generate_unique_id(existing_ids):
 # --- HTTP Route ---
 @app.route('/')
 def index():
+    # WICHTIG: Sendet die index.html aus dem 'templates'-Ordner
     return render_template('index.html')
 
 # --- SocketIO Events ---
