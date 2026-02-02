@@ -1,188 +1,116 @@
 import os
 import json
 import random
-import time
 import requests
-from datetime import datetime
 from flask import Flask, render_template, request, session
-from flask_socketio import SocketIO, emit, join_room, leave_room
+from flask_socketio import SocketIO, emit, join_room
 from flask_cors import CORS
 
 app = Flask(__name__)
 CORS(app)
-app.config['SECRET_KEY'] = 'cosmo-ultimate-secret'
+app.config['SECRET_KEY'] = 'cosmo-secret-key-999'
 socketio = SocketIO(app, cors_allowed_origins="*")
 
-# --- DATEI-SPEICHERUNG (JSON) ---
-DATA_FILE = 'cosmo_data.json'
+# Einfache Datenspeicherung in einer JSON-Datei (für den Start)
+DATA_FILE = 'cosmo_db.json'
 
 def load_db():
-    if not os.path.exists(DATA_FILE):
-        return {'users': {}, 'chats': {}}
+    if not os.path.exists(DATA_FILE): return {'users': {}, 'chats': {}}
     try:
-        with open(DATA_FILE, 'r') as f:
-            return json.load(f)
-    except:
-        return {'users': {}, 'chats': {}}
+        with open(DATA_FILE, 'r') as f: return json.load(f)
+    except: return {'users': {}, 'chats': {}}
 
 def save_db(data):
     try:
-        with open(DATA_FILE, 'w') as f:
-            json.dump(data, f, indent=4)
+        with open(DATA_FILE, 'w') as f: json.dump(data, f)
     except: pass
 
-# --- KI KONFIGURATION ---
-# Füge hier deinen API Key ein, wenn du ihn hast. Sonst bleibt es leer.
-API_KEY = os.environ.get('GEMINI_API_KEY', '') 
-GEMINI_URL = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key={API_KEY}"
-
+# KI-Funktion
 def ask_gemini(prompt):
-    if not API_KEY: return "KI-System offline (Kein Key)."
-    payload = {"contents": [{"parts": [{"text": prompt}]}]}
+    key = os.environ.get('GEMINI_API_KEY')
+    if not key: return "KI ist nicht konfiguriert."
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key={key}"
     try:
-        res = requests.post(GEMINI_URL, json=payload, timeout=10)
-        if res.status_code == 200:
-            return res.json()['candidates'][0]['content']['parts'][0]['text']
+        res = requests.post(url, json={"contents": [{"parts": [{"text": prompt}]}]}, timeout=5)
+        if res.status_code == 200: return res.json()['candidates'][0]['content']['parts'][0]['text']
     except: pass
-    return "Verbindung zum KI-Kern verloren."
-
-# --- HILFSFUNKTIONEN ---
-def generate_id(existing_ids):
-    while True:
-        # Erstellt garantiert eine 6-stellige Zahl (100000 bis 999999)
-        new_id = str(random.randint(100000, 999999))
-        if new_id not in existing_ids:
-            return new_id
-
-def get_room_id(id1, id2):
-    # Erstellt einen eindeutigen Raum-Namen für zwei Personen (z.B. "123456-987654")
-    return "-".join(sorted([str(id1), str(id2)]))
-
-# --- SERVER EVENTS ---
+    return "KI antwortet nicht."
 
 @app.route('/')
 def index():
     return render_template('index.html')
 
-@socketio.on('connect')
-def on_connect():
-    print(f"Verbindung hergestellt: {request.sid}")
-
 @socketio.on('login')
 def handle_login(data):
-    # Versuch, die alte ID aus dem Browser zu laden
-    stored_id = data.get('id')
     db = load_db()
+    uid = data.get('id')
     
-    my_id = None
-    
-    if stored_id and stored_id in db['users']:
-        my_id = stored_id
-    else:
-        # Neue ID generieren
-        my_id = generate_id(db['users'])
-        # User anlegen
-        db['users'][my_id] = {
-            'name': 'Cosmonaut', 
-            'friends': [], 
-            'color': '#00ff88',
-            'status': 'online'
-        }
+    # 6-stellige ID generieren, falls nicht vorhanden
+    if not uid or uid not in db['users']:
+        while True:
+            uid = str(random.randint(100000, 999999))
+            if uid not in db['users']: break
+        db['users'][uid] = {'name': 'Cosmonaut', 'friends': []}
         save_db(db)
     
-    session['uid'] = my_id
+    session['uid'] = uid
+    user = db['users'][uid]
     
-    # Nutzerdaten zurücksenden
-    user = db['users'][my_id]
-    
-    # Freundesliste aufbereiten (Namen holen)
-    friends_data = []
+    # Freundesliste bauen
+    friend_list = []
     for fid in user['friends']:
         if fid in db['users']:
-            friends_data.append({
-                'id': fid, 
-                'name': db['users'][fid]['name'],
-                'status': 'online' # Hier könnte man echte Online-Logik einbauen
-            })
-
-    emit('login_success', {
-        'id': my_id, 
-        'name': user['name'],
-        'friends': friends_data
-    })
+            friend_list.append({'id': fid, 'name': db['users'][fid]['name']})
+            
+    emit('init_data', {'id': uid, 'friends': friend_list})
 
 @socketio.on('add_friend')
-def handle_add_friend(data):
-    my_id = session.get('uid')
-    friend_id = data.get('friend_id')
-    
-    if not my_id or not friend_id: return
-    if my_id == friend_id: return # Man kann sich nicht selbst hinzufügen
-    
+def add_friend(data):
+    uid = session.get('uid')
+    fid = data.get('friend_id')
     db = load_db()
     
-    if friend_id not in db['users']:
-        emit('error', {'msg': 'Diese ID existiert nicht im Universum.'})
-        return
-    
-    # Hinzufügen (bei mir)
-    if friend_id not in db['users'][my_id]['friends']:
-        db['users'][my_id]['friends'].append(friend_id)
-    
-    # Hinzufügen (beim Freund - damit er mich auch sieht)
-    if my_id not in db['users'][friend_id]['friends']:
-        db['users'][friend_id]['friends'].append(my_id)
-        
-    save_db(db)
-    
-    # Erfolgreich zurückmelden
-    friend_name = db['users'][friend_id]['name']
-    emit('friend_added', {'id': friend_id, 'name': friend_name, 'status': 'online'})
+    if uid and fid and fid in db['users'] and fid != uid:
+        if fid not in db['users'][uid]['friends']:
+            db['users'][uid]['friends'].append(fid)
+            # Gegenseitig hinzufügen
+            if uid not in db['users'][fid]['friends']:
+                db['users'][fid]['friends'].append(uid)
+            save_db(db)
+            emit('friend_added', {'id': fid, 'name': db['users'][fid]['name']})
 
 @socketio.on('join_chat')
-def handle_join_chat(data):
-    my_id = session.get('uid')
-    target_id = data.get('target_id')
-    
-    if not my_id or not target_id: return
-    
-    # Raum-ID erstellen
-    room = get_room_id(my_id, target_id)
+def join_chat(data):
+    uid = session.get('uid')
+    target = data.get('target_id')
+    room = "-".join(sorted([uid, target]))
     join_room(room)
     
-    # Alte Nachrichten laden
     db = load_db()
-    history = db['chats'].get(room, [])
-    
-    emit('chat_history', {'room': room, 'messages': history, 'partner': target_id})
+    msgs = db['chats'].get(room, [])
+    emit('chat_history', {'room': room, 'messages': msgs})
 
-@socketio.on('send_msg')
-def handle_msg(data):
-    my_id = session.get('uid')
+@socketio.on('send_message')
+def send_msg(data):
+    uid = session.get('uid')
     text = data.get('text')
-    room = data.get('room') # Die Raum-ID (z.B. "123-456")
+    room = data.get('room')
     
-    if not my_id or not text or not room: return
-    
-    timestamp = datetime.now().strftime('%H:%M')
-    msg_obj = {'from': my_id, 'text': text, 'time': timestamp}
-    
-    # Speichern
-    db = load_db()
-    if room not in db['chats']:
-        db['chats'][room] = []
-    db['chats'][room].append(msg_obj)
-    save_db(db)
-    
-    # Senden an den Raum
-    emit('new_msg', msg_obj, room=room)
-    
-    # KI Logik (nur wenn wir im KI Chat sind oder global)
-    if text.lower().startswith("@ai"):
-        prompt = text[3:].strip()
-        answer = ask_gemini(prompt)
-        ai_msg = {'from': 'ai', 'text': answer, 'time': timestamp}
-        emit('new_msg', ai_msg, room=room)
+    if uid and text and room:
+        msg = {'from': uid, 'text': text}
+        
+        db = load_db()
+        if room not in db['chats']: db['chats'][room] = []
+        db['chats'][room].append(msg)
+        save_db(db)
+        
+        emit('new_message', {**msg, 'room': room}, room=room)
+        
+        if "@ai" in text.lower():
+            ai_text = ask_gemini(text.replace("@ai", ""))
+            ai_msg = {'from': 'ai', 'text': ai_text}
+            emit('new_message', {**ai_msg, 'room': room}, room=room)
 
 if __name__ == '__main__':
-    socketio.run(app, host='0.0.0.0', port=5000, debug=True)
+    port = int(os.environ.get('PORT', 5000))
+    socketio.run(app, host='0.0.0.0', port=port)
