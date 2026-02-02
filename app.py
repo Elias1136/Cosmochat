@@ -1,116 +1,131 @@
 import os
-import json
 import random
+import time
 import requests
+import html
+from datetime import datetime
 from flask import Flask, render_template, request, session
 from flask_socketio import SocketIO, emit, join_room
 from flask_cors import CORS
+from google.cloud import firestore
 
 app = Flask(__name__)
+# WICHTIG: CORS erlaubt dem Browser, Daten vom Server zu laden
 CORS(app)
-app.config['SECRET_KEY'] = 'cosmo-secret-key-999'
-socketio = SocketIO(app, cors_allowed_origins="*")
+app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'cosmo-ultra-secure-key')
 
-# Einfache Datenspeicherung in einer JSON-Datei (für den Start)
-DATA_FILE = 'cosmo_db.json'
+# WICHTIG: cors_allowed_origins="*" erlaubt die Verbindung für die ID
+socketio = SocketIO(app, cors_allowed_origins="*", async_mode='eventlet')
 
-def load_db():
-    if not os.path.exists(DATA_FILE): return {'users': {}, 'chats': {}}
-    try:
-        with open(DATA_FILE, 'r') as f: return json.load(f)
-    except: return {'users': {}, 'chats': {}}
+# --- KONFIGURATION ---
+API_KEY = os.environ.get('GEMINI_API_KEY', '')
+GEMINI_URL = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key={API_KEY}"
+APP_ID = "cosmochat_v6_pro"
 
-def save_db(data):
-    try:
-        with open(DATA_FILE, 'w') as f: json.dump(data, f)
-    except: pass
+# Datenbank-Client (für Google Cloud)
+try:
+    db = firestore.Client()
+except:
+    db = None # Fallback, falls lokal getestet wird
 
-# KI-Funktion
+# --- DATENBANK PFADE ---
+def get_user_ref(user_id):
+    if db: return db.collection('artifacts').document(APP_ID).collection('users').document(user_id)
+    return None
+
+def get_msg_ref():
+    if db: return db.collection('artifacts').document(APP_ID).collection('public').document('data').collection('messages')
+    return None
+
+# --- KI LOGIK ---
 def ask_gemini(prompt):
-    key = os.environ.get('GEMINI_API_KEY')
-    if not key: return "KI ist nicht konfiguriert."
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key={key}"
+    if not API_KEY: return "KI-System: Kein API-Key gefunden."
+    payload = {
+        "contents": [{"parts": [{"text": prompt}]}],
+        "systemInstruction": {"parts": [{"text": "Du bist CosmoAI. Antworte kurz und hilfreich auf Deutsch."}]}
+    }
     try:
-        res = requests.post(url, json={"contents": [{"parts": [{"text": prompt}]}]}, timeout=5)
-        if res.status_code == 200: return res.json()['candidates'][0]['content']['parts'][0]['text']
+        res = requests.post(GEMINI_URL, json=payload, timeout=10)
+        if res.status_code == 200:
+            return res.json()['candidates'][0]['content']['parts'][0]['text']
     except: pass
-    return "KI antwortet nicht."
+    return "KI antwortet gerade nicht."
+
+# --- EVENTS ---
 
 @app.route('/')
 def index():
     return render_template('index.html')
 
-@socketio.on('login')
-def handle_login(data):
-    db = load_db()
-    uid = data.get('id')
-    
-    # 6-stellige ID generieren, falls nicht vorhanden
-    if not uid or uid not in db['users']:
-        while True:
-            uid = str(random.randint(100000, 999999))
-            if uid not in db['users']: break
-        db['users'][uid] = {'name': 'Cosmonaut', 'friends': []}
-        save_db(db)
-    
-    session['uid'] = uid
-    user = db['users'][uid]
-    
-    # Freundesliste bauen
-    friend_list = []
-    for fid in user['friends']:
-        if fid in db['users']:
-            friend_list.append({'id': fid, 'name': db['users'][fid]['name']})
-            
-    emit('init_data', {'id': uid, 'friends': friend_list})
+@socketio.on('connect')
+def handle_connect_event():
+    print(f"Client verbunden: {request.sid}")
 
-@socketio.on('add_friend')
-def add_friend(data):
-    uid = session.get('uid')
-    fid = data.get('friend_id')
-    db = load_db()
+@socketio.on('user_connect')
+def handle_user_init(data):
+    # Hier wird die ID generiert oder geladen
+    user_id = data.get('id')
     
-    if uid and fid and fid in db['users'] and fid != uid:
-        if fid not in db['users'][uid]['friends']:
-            db['users'][uid]['friends'].append(fid)
-            # Gegenseitig hinzufügen
-            if uid not in db['users'][fid]['friends']:
-                db['users'][fid]['friends'].append(uid)
-            save_db(db)
-            emit('friend_added', {'id': fid, 'name': db['users'][fid]['name']})
-
-@socketio.on('join_chat')
-def join_chat(data):
-    uid = session.get('uid')
-    target = data.get('target_id')
-    room = "-".join(sorted([uid, target]))
-    join_room(room)
+    # ID Validierung (muss 6-stellig sein)
+    if not user_id or len(str(user_id)) != 6:
+        user_id = str(random.randint(100000, 999999))
+        if db:
+            get_user_ref(user_id).set({'created': firestore.SERVER_TIMESTAMP})
     
-    db = load_db()
-    msgs = db['chats'].get(room, [])
-    emit('chat_history', {'room': room, 'messages': msgs})
+    session['uid'] = user_id
+    join_room('global')
+    
+    # Sende die ID zurück an den Browser -> Das löst "ID: lädt..."
+    emit('init_data', {'id': user_id})
 
 @socketio.on('send_message')
-def send_msg(data):
+def handle_msg(payload):
     uid = session.get('uid')
-    text = data.get('text')
-    room = data.get('room')
+    text = payload.get('text', '').strip()
+    if not uid or not text: return
+
+    # HTML säubern (Sicherheit)
+    safe_text = html.escape(text)
     
-    if uid and text and room:
-        msg = {'from': uid, 'text': text}
-        
-        db = load_db()
-        if room not in db['chats']: db['chats'][room] = []
-        db['chats'][room].append(msg)
-        save_db(db)
-        
-        emit('new_message', {**msg, 'room': room}, room=room)
-        
-        if "@ai" in text.lower():
-            ai_text = ask_gemini(text.replace("@ai", ""))
-            ai_msg = {'from': 'ai', 'text': ai_text}
-            emit('new_message', {**ai_msg, 'room': room}, room=room)
+    msg_id = str(int(time.time() * 1000))
+    msg_data = {
+        'id': msg_id,
+        'from_id': uid,
+        'text': safe_text,
+        'time': datetime.now().strftime('%H:%M'),
+        'timestamp': firestore.SERVER_TIMESTAMP
+    }
+    
+    if db: get_msg_ref().document(msg_id).set(msg_data)
+    emit('receive_message', msg_data, room='global')
+
+@socketio.on('ask_ai')
+def handle_ai(payload):
+    prompt = payload.get('text', '').strip()
+    if not prompt: return
+    
+    ans = ask_gemini(prompt)
+    ai_msg = {
+        'id': f"ai_{time.time()}", 
+        'from_id': 'ai_bot', 
+        'from_name': 'CosmoAI 🤖',
+        'text': html.escape(ans), 
+        'time': datetime.now().strftime('%H:%M'), 
+        'is_ai': True
+    }
+    emit('receive_message', ai_msg, room='global')
+
+@socketio.on('load_history')
+def load_hist():
+    if not db: return
+    try:
+        docs = get_msg_ref().order_by('timestamp', direction=firestore.Query.DESCENDING).limit(40).stream()
+        msgs = sorted([d.to_dict() for d in docs], key=lambda x: x.get('id', ''))
+        for m in msgs: 
+            if 'timestamp' in m: del m['timestamp']
+        emit('chat_history', msgs)
+    except: pass
 
 if __name__ == '__main__':
-    port = int(os.environ.get('PORT', 5000))
+    port = int(os.environ.get('PORT', 8080))
     socketio.run(app, host='0.0.0.0', port=port)
