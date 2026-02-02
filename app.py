@@ -1,181 +1,109 @@
-from flask import Flask, render_template, request, session
-from flask_socketio import SocketIO, emit, join_room, leave_room
-from flask_cors import CORS
 import os
-import json
 import random
-import html # Für Sicherheit gegen Hacker-Code
+import time
+import requests
+import html
 from datetime import datetime
+from flask import Flask, render_template, request, session
+from flask_socketio import SocketIO, emit, join_room
+from flask_cors import CORS
+from google.cloud import firestore
 
 app = Flask(__name__)
 CORS(app)
-app.config['SECRET_KEY'] = 'cosmo-super-secret-key-999'
-socketio = SocketIO(app, cors_allowed_origins="*")
+app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'cosmo-key-123')
+socketio = SocketIO(app, cors_allowed_origins="*", async_mode='eventlet')
 
-# Datei zum Speichern der Daten
-DATA_FILE = 'cosmo_data.json'
-online_users = {} # Speichert wer gerade online ist
+# --- KONFIGURATION ---
+API_KEY = os.environ.get('GEMINI_API_KEY', '')
+GEMINI_URL = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key={API_KEY}"
+APP_ID = "cosmochat_v7"
 
-# --- DATENBANK FUNKTIONEN ---
-def load_data():
-    if not os.path.exists(DATA_FILE): return {'users': {}, 'chats': {}}
+try:
+    db = firestore.Client()
+except:
+    db = None
+
+def get_msg_ref():
+    if db: return db.collection('artifacts').document(APP_ID).collection('messages')
+    return None
+
+def get_user_ref(uid):
+    if db: return db.collection('artifacts').document(APP_ID).collection('users').document(uid)
+    return None
+
+def ask_gemini(prompt):
+    if not API_KEY: return "KI ist nicht konfiguriert."
+    payload = {
+        "contents": [{"parts": [{"text": prompt}]}],
+        "systemInstruction": {"parts": [{"text": "Du bist CosmoAI. Antworte kurz und hilfreich auf Deutsch."}]}
+    }
     try:
-        with open(DATA_FILE, 'r') as f: return json.load(f)
-    except: return {'users': {}, 'chats': {}}
-
-def save_data(data):
-    try:
-        with open(DATA_FILE, 'w') as f: json.dump(data, f, indent=4)
+        res = requests.post(GEMINI_URL, json=payload, timeout=10)
+        if res.status_code == 200:
+            return res.json()['candidates'][0]['content']['parts'][0]['text']
     except: pass
+    return "KI antwortet nicht."
 
-def get_room_id(id1, id2):
-    # Erstellt einen einzigartigen Raum für zwei Personen
-    return "-".join(sorted([str(id1), str(id2)]))
-
-# --- ROUTEN ---
 @app.route('/')
 def index():
     return render_template('index.html')
 
-# --- SOCKET EVENTS ---
-@socketio.on('connect')
-def on_connect():
-    print(f"Verbindung: {request.sid}")
-
-@socketio.on('login')
-def handle_login(data):
-    db = load_data()
+@socketio.on('user_connect')
+def handle_connect(data):
     uid = data.get('id')
-    
-    # 1. 6-stellige ID prüfen oder neu erstellen
-    if not uid or uid not in db['users']:
-        while True:
-            uid = str(random.randint(100000, 999999))
-            if uid not in db['users']: break
-        
-        # Neuen Nutzer anlegen
-        db['users'][uid] = {'name': 'Neuer Nutzer', 'friends': [], 'color': '#00ff88'}
-        save_data(db)
+    if not uid or len(str(uid)) != 6:
+        uid = str(random.randint(100000, 999999))
+        if db: get_user_ref(uid).set({'created': firestore.SERVER_TIMESTAMP})
     
     session['uid'] = uid
-    online_users[uid] = request.sid
-    join_room(uid) # Eigener Raum für Benachrichtigungen
-    
-    # Status an Freunde senden (Ich bin online!)
-    user = db['users'][uid]
-    for friend_id in user['friends']:
-        if friend_id in online_users:
-            emit('friend_status', {'id': uid, 'status': 'online'}, room=online_users[friend_id])
-
-    # Freundesliste für Frontend vorbereiten
-    friend_list = []
-    for fid in user['friends']:
-        if fid in db['users']:
-            fname = db['users'][fid]['name']
-            fstatus = 'online' if fid in online_users else 'offline'
-            friend_list.append({'id': fid, 'name': fname, 'status': fstatus})
-
-    emit('init_data', {'id': uid, 'name': user['name'], 'friends': friend_list})
-
-@socketio.on('set_name')
-def handle_set_name(data):
-    uid = session.get('uid')
-    if not uid: return
-    # Sicherheit: HTML entfernen
-    new_name = html.escape(data.get('name', '')).strip()
-    if new_name:
-        db = load_data()
-        db['users'][uid]['name'] = new_name
-        save_data(db)
-        emit('name_updated', {'name': new_name})
-
-@socketio.on('add_friend')
-def handle_add_friend(data):
-    uid = session.get('uid')
-    target_id = data.get('target_id')
-    
-    if not uid or not target_id: return
-    if uid == target_id: return # Sich selbst adden geht nicht
-    
-    db = load_data()
-    
-    if target_id not in db['users']:
-        emit('error_msg', {'text': 'Diese ID existiert nicht!'})
-        return
-    
-    # Freundschaft speichern (beidseitig)
-    if target_id not in db['users'][uid]['friends']:
-        db['users'][uid]['friends'].append(target_id)
-    if uid not in db['users'][target_id]['friends']:
-        db['users'][target_id]['friends'].append(uid)
-        
-    save_data(db)
-    
-    # Mir den Freund schicken
-    target_name = db['users'][target_id]['name']
-    target_status = 'online' if target_id in online_users else 'offline'
-    emit('friend_added', {'id': target_id, 'name': target_name, 'status': target_status})
-    
-    # Dem Freund mich schicken (wenn online)
-    if target_id in online_users:
-        my_name = db['users'][uid]['name']
-        emit('friend_added', {'id': uid, 'name': my_name, 'status': 'online'}, room=online_users[target_id])
-
-@socketio.on('remove_friend')
-def handle_remove_friend(data):
-    uid = session.get('uid')
-    target_id = data.get('target_id')
-    
-    db = load_data()
-    if target_id in db['users'][uid]['friends']:
-        db['users'][uid]['friends'].remove(target_id)
-        save_data(db)
-        emit('friend_removed', {'id': target_id})
-
-@socketio.on('join_chat')
-def handle_join_chat(data):
-    uid = session.get('uid')
-    target_id = data.get('target_id')
-    room = get_room_id(uid, target_id)
-    join_room(room)
-    
-    db = load_data()
-    msgs = db['chats'].get(room, [])
-    emit('chat_history', {'room': room, 'messages': msgs, 'partner': target_id})
+    join_room('global')
+    emit('init_data', {'id': uid})
 
 @socketio.on('send_message')
-def handle_send_message(data):
+def handle_msg(data):
     uid = session.get('uid')
-    text = html.escape(data.get('text', '')).strip() # Hacker Schutz
-    room = data.get('room')
-    
-    if not uid or not text or not room: return
-    
-    msg = {
+    text = data.get('text', '').strip()
+    if not uid or not text: return
+
+    msg_id = str(int(time.time() * 1000))
+    msg_data = {
+        'id': msg_id,
         'from': uid,
-        'text': text,
-        'time': datetime.now().strftime('%H:%M')
+        'text': html.escape(text),
+        'time': datetime.now().strftime('%H:%M'),
+        'timestamp': firestore.SERVER_TIMESTAMP
     }
     
-    db = load_data()
-    if room not in db['chats']: db['chats'][room] = []
-    db['chats'][room].append(msg)
-    save_data(db)
-    
-    emit('new_message', msg, room=room)
+    if db: get_msg_ref().document(msg_id).set(msg_data)
+    emit('receive_message', msg_data, room='global')
 
-@socketio.on('disconnect')
-def on_disconnect():
-    uid = session.get('uid')
-    if uid:
-        if uid in online_users: del online_users[uid]
-        # Freunde benachrichtigen
-        db = load_data()
-        if uid in db['users']:
-            for friend_id in db['users'][uid]['friends']:
-                if friend_id in online_users:
-                    emit('friend_status', {'id': uid, 'status': 'offline'}, room=online_users[friend_id])
+@socketio.on('ask_ai')
+def handle_ai(data):
+    text = data.get('text', '').strip()
+    if not text: return
+    
+    ans = ask_gemini(text)
+    ai_msg = {
+        'id': f"ai_{time.time()}",
+        'from': 'ai_bot',
+        'text': html.escape(ans),
+        'time': datetime.now().strftime('%H:%M'),
+        'is_ai': True
+    }
+    emit('receive_message', ai_msg, room='global')
+
+@socketio.on('load_history')
+def load_hist():
+    if not db: return
+    try:
+        docs = get_msg_ref().order_by('timestamp', direction=firestore.Query.DESCENDING).limit(50).stream()
+        msgs = sorted([d.to_dict() for d in docs], key=lambda x: x.get('id', ''))
+        for m in msgs:
+            if 'timestamp' in m: del m['timestamp']
+        emit('chat_history', msgs)
+    except: pass
 
 if __name__ == '__main__':
-    port = int(os.environ.get('PORT', 5000))
+    port = int(os.environ.get('PORT', 8080))
     socketio.run(app, host='0.0.0.0', port=port)
