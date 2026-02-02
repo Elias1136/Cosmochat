@@ -3,85 +3,128 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CosmoChat</title>
+    <title>CosmoChat Sky</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
-        body { 
-            background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
-            color: white; 
-        }
-        .chat-area { height: 60vh; }
+        body { background-color: #f0f9ff; color: #0c4a6e; font-family: 'Segoe UI', sans-serif; height: 100vh; display: flex; overflow: hidden; }
+        .side-panel { background-color: #e0f2fe; border-right: 2px solid #bae6fd; width: 320px; transition: all 0.3s; }
+        .msg-me { background-color: #0ea5e9; color: white; border-radius: 20px 20px 0 20px; }
+        .msg-other { background-color: #e2e8f0; color: #1e293b; border-radius: 20px 20px 20px 0; }
+        .msg-ai { background-color: #f0f4ff; border: 2px solid #c7d2fe; border-radius: 20px; }
+        .ai-btn { background-color: #8b5cf6; color: white; }
+        .ai-btn:hover { background-color: #7c3aed; transform: scale(1.05); }
+        .img-result { border-radius: 15px; margin-top: 10px; max-width: 100%; border: 4px solid white; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+        ::-webkit-scrollbar { width: 5px; }
+        ::-webkit-scrollbar-thumb { background: #bae6fd; border-radius: 10px; }
     </style>
 </head>
-<body class="min-h-screen flex flex-col items-center justify-center p-4">
-    
-    <div class="w-full max-w-2xl bg-slate-800/50 backdrop-blur-md rounded-2xl shadow-2xl border border-slate-700 overflow-hidden">
-        <!-- Header -->
-        <div class="bg-slate-800 p-6 border-b border-slate-700">
-            <h1 class="text-3xl font-extrabold text-blue-400">CosmoChat <span class="text-xs font-normal text-slate-400">v2.0</span></h1>
-            <p class="text-slate-400 text-sm mt-1">Dein Echtzeit-Chat im Web.</p>
+<body class="flex-col md:flex-row w-full">
+
+    <!-- Sidebar -->
+    <div class="side-panel p-6 flex flex-col h-1/3 md:h-full overflow-y-auto">
+        <h1 class="text-3xl font-black text-sky-600 mb-4 italic flex items-center gap-2">
+            <i class="fa-solid fa-cloud-sun"></i> CosmoChat
+        </h1>
+        <div id="idBadge" class="bg-white/80 p-3 rounded-2xl font-bold text-center mb-6 text-sky-700 border border-sky-200 text-xs tracking-widest">
+            ID: lädt...
+        </div>
+        
+        <label class="text-[10px] font-bold text-sky-400 uppercase ml-1">Dein Anzeigename</label>
+        <input type="text" id="nameInp" placeholder="Name..." class="p-4 rounded-2xl border-2 border-sky-100 mb-6 outline-none focus:border-sky-400">
+        
+        <div class="mt-auto bg-sky-200/50 p-4 rounded-2xl">
+            <p class="text-[10px] font-bold text-sky-500 mb-1">KI-TIPPS</p>
+            <p class="text-[11px] text-sky-700">Nutze <b>/imagine [Text]</b> für Bilder oder klicke den 🤖 Roboter!</p>
+        </div>
+    </div>
+
+    <!-- Chat Bereich -->
+    <div class="flex-1 flex flex-col bg-white">
+        <div id="chatWin" class="flex-1 overflow-y-auto p-6 space-y-6">
+            <!-- Chat lädt hier -->
         </div>
 
-        <!-- Chat Verlauf -->
-        <div id="chat-window" class="chat-area overflow-y-auto p-6 space-y-4">
-            <div class="bg-blue-600 self-start p-4 rounded-2xl rounded-tl-none max-w-[85%] shadow-lg">
-                Willkommen bei CosmoChat! Sobald du eine Nachricht schreibst, erscheint sie hier.
-            </div>
-        </div>
-
-        <!-- Eingabe -->
-        <div class="p-6 bg-slate-900/80 border-t border-slate-700">
-            <div class="flex gap-3">
-                <input type="text" id="user-input" placeholder="Schreibe eine Nachricht..." 
-                       class="flex-1 bg-slate-700 border border-slate-600 rounded-xl p-4 outline-none text-white transition-all focus:ring-2 focus:ring-blue-500">
-                <button onclick="sendMessage()" class="bg-blue-500 hover:bg-blue-600 px-8 py-4 rounded-xl font-bold transition-all shadow-lg shadow-blue-500/20">
-                    Senden
-                </button>
-            </div>
+        <!-- Input-Leiste -->
+        <div class="p-4 md:p-6 border-t-2 border-sky-50 flex items-center gap-3 bg-white">
+            <!-- Gemini Roboter Knopf -->
+            <button onclick="askAI()" title="Gemini fragen" class="ai-btn w-14 h-14 rounded-2xl flex items-center justify-center transition shadow-lg">
+                <i class="fa-solid fa-robot text-xl"></i>
+            </button>
+            
+            <input type="text" id="msgInp" placeholder="Schreibe eine Nachricht..." 
+                class="flex-1 p-5 bg-slate-100 rounded-2xl outline-none focus:bg-white focus:ring-4 focus:ring-sky-100 transition-all shadow-inner">
+            
+            <button onclick="send()" class="bg-sky-500 text-white h-14 px-8 rounded-2xl font-black shadow-lg hover:bg-sky-600 transition-all flex items-center gap-2">
+                <span class="hidden md:inline">SENDEN</span>
+                <i class="fa-solid fa-paper-plane"></i>
+            </button>
         </div>
     </div>
 
     <script>
         const socket = io();
-        const chatWindow = document.getElementById('chat-window');
-        const userInput = document.getElementById('user-input');
+        const chatWin = document.getElementById('chatWin');
+        const msgInp = document.getElementById('msgInp');
+        let myId = localStorage.getItem('cosmo_id_v2');
 
         socket.on('connect', () => {
-            socket.emit('user_connect', { id: localStorage.getItem('cosmo_id') });
+            socket.emit('user_connect', { id: myId });
+            socket.emit('load_history');
         });
 
-        socket.on('init_data', (data) => {
-            localStorage.setItem('cosmo_id', data.id);
-            console.log("Verbunden mit ID:", data.id);
+        socket.on('init_data', (d) => {
+            myId = d.id;
+            localStorage.setItem('cosmo_id_v2', myId);
+            document.getElementById('idBadge').textContent = "ID: " + myId;
+            document.getElementById('nameInp').value = d.name;
         });
 
-        socket.on('new_message', (msg) => {
-            appendMessage(msg.from_id === localStorage.getItem('cosmo_id') ? 'user' : 'other', msg.text);
+        socket.on('chat_history', (msgs) => {
+            chatWin.innerHTML = '';
+            msgs.forEach(m => addMsg(m));
         });
 
-        function sendMessage() {
-            const text = userInput.value.trim();
-            if (!text) return;
-            socket.emit('send_message', { text: text, room: 'global' });
-            userInput.value = '';
+        socket.on('new_message', (m) => addMsg(m));
+
+        function send() {
+            const t = msgInp.value.trim();
+            if(!t) return;
+            socket.emit('send_message', { text: t });
+            msgInp.value = '';
         }
 
-        function appendMessage(sender, text) {
-            const div = document.createElement('div');
-            if (sender === 'user') {
-                div.className = 'bg-slate-700 self-end p-4 rounded-2xl rounded-tr-none max-w-[85%] ml-auto text-right shadow-md border border-slate-600';
-            } else {
-                div.className = 'bg-blue-600 self-start p-4 rounded-2xl rounded-tl-none max-w-[85%] shadow-md';
-            }
-            div.innerText = text;
-            chatWindow.appendChild(div);
-            chatWindow.scrollTop = chatWindow.scrollHeight;
+        function askAI() {
+            const t = msgInp.value.trim();
+            if(!t) return alert("Frag erst etwas!");
+            socket.emit('ask_ai', { text: t });
+            msgInp.value = '';
         }
 
-        userInput.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') sendMessage();
-        });
+        function addMsg(m) {
+            const isMe = m.from_id === myId;
+            const isAI = m.from_id === 'ai';
+            const wrap = document.createElement('div');
+            wrap.className = `flex w-full ${isMe ? 'justify-end' : 'justify-start'} animate-in slide-in-from-bottom-2`;
+            
+            let content = `<p class="text-sm md:text-base leading-relaxed">${m.text}</p>`;
+            if(m.img) content += `<img src="${m.img}" class="img-result" onclick="window.open(this.src)">`;
+
+            wrap.innerHTML = `
+                <div class="max-w-[85%] md:max-w-[70%] p-4 shadow-sm ${isMe ? 'msg-me' : (isAI ? 'msg-ai' : 'msg-other')}">
+                    <div class="flex justify-between items-center mb-1 opacity-40 text-[9px] font-black uppercase">
+                        <span>${isMe ? 'Du' : (isAI ? 'CosmoAI 🤖' : 'Nutzer')}</span>
+                        <span>${m.time || ''}</span>
+                    </div>
+                    ${content}
+                </div>
+            `;
+            chatWin.appendChild(wrap);
+            chatWin.scrollTo({ top: chatWin.scrollHeight, behavior: 'smooth' });
+        }
+
+        msgInp.onkeypress = (e) => { if(e.key === 'Enter') send(); };
     </script>
 </body>
 </html>
