@@ -10,42 +10,40 @@ from google.cloud import firestore
 
 app = Flask(__name__)
 CORS(app)
-app.config['SECRET_KEY'] = 'cosmochat-light-pro-2025'
+app.config['SECRET_KEY'] = 'cosmochat-pro-sky-blue'
 socketio = SocketIO(app, cors_allowed_origins="*")
 
 # --- KONFIGURATION ---
-# Der API-Key wird in der Google Cloud Umgebung automatisch bereitgestellt
+# Die API_KEY wird in der Google Cloud automatisch erkannt
 API_KEY = "" 
 GEMINI_URL = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key={API_KEY}"
 IMAGEN_URL = f"https://generativelanguage.googleapis.com/v1beta/models/imagen-4.0-generate-001:predict?key={API_KEY}"
-APP_ID = "cosmochat_final"
+APP_ID = "cosmochat"
 
 # Firestore Datenbank
 db = firestore.Client()
 
-# Pfad-Regeln für Firestore (Regel 1)
+# Firestore Pfade nach Regel 1
 def get_user_ref(user_id):
     return db.collection('artifacts').document(APP_ID).collection('users').document(user_id)
 
 def get_msg_ref():
     return db.collection('artifacts').document(APP_ID).collection('public').document('data').collection('messages')
 
-# KI-Funktionen (Exponential Backoff integriert)
-def call_ai_text(prompt):
+# --- KI LOGIK ---
+def ask_gemini(prompt):
     payload = {
         "contents": [{"parts": [{"text": prompt}]}],
-        "systemInstruction": {"parts": [{"text": "Du bist CosmoAI. Antworte kurz, freundlich und in hellem Blau-Thema passend auf Deutsch."}]}
+        "systemInstruction": {"parts": [{"text": "Du bist CosmoAI. Antworte kurz, freundlich und in einem hellblauen Chat-Stil auf Deutsch."}]}
     }
-    for i in range(5):
-        try:
-            res = requests.post(GEMINI_URL, json=payload, timeout=10)
-            if res.status_code == 200:
-                return res.json()['candidates'][0]['content']['parts'][0]['text']
-            time.sleep(1)
-        except: time.sleep(1)
-    return "KI-Dienst antwortet nicht."
+    try:
+        res = requests.post(GEMINI_URL, json=payload, timeout=10)
+        if res.status_code == 200:
+            return res.json()['candidates'][0]['content']['parts'][0]['text']
+    except: pass
+    return "Meine KI-Antenne hat gerade keinen Empfang!"
 
-def call_ai_image(prompt):
+def generate_image(prompt):
     payload = {"instances": [{"prompt": prompt}], "parameters": {"sampleCount": 1}}
     try:
         res = requests.post(IMAGEN_URL, json=payload, timeout=30)
@@ -71,7 +69,7 @@ def handle_connect(data):
     
     if not uid:
         uid = str(random.randint(100000, 999999))
-        user_data = {'name': 'Cosmonaut', 'friends': []}
+        user_data = {'name': 'Cosmonaut', 'color': '#0ea5e9'}
         get_user_ref(uid).set(user_data)
     
     session['uid'] = uid
@@ -83,13 +81,13 @@ def handle_msg(payload):
     text = payload.get('text', '').strip()
     if not uid or not text: return
 
-    # Bild-Trigger
+    # Bild generieren mit /imagine
     if text.lower().startswith("/imagine"):
         prompt = text[8:].strip()
-        emit('new_message', {'from_id': 'sys', 'text': '🎨 Generiere Bild...'}, broadcast=True)
-        img = call_ai_image(prompt)
+        emit('new_message', {'from_id': 'sys', 'text': '🎨 Ich male das Bild für dich...', 'time': datetime.now().strftime('%H:%M')}, broadcast=True)
+        img = generate_image(prompt)
         if img:
-            msg = {'from_id': 'ai', 'text': f'Bild für: {prompt}', 'img': img, 'time': datetime.now().strftime('%H:%M')}
+            msg = {'from_id': 'ai', 'text': f'Hier ist dein Bild: {prompt}', 'img': img, 'time': datetime.now().strftime('%H:%M')}
             emit('new_message', msg, broadcast=True)
         return
 
@@ -104,7 +102,7 @@ def handle_msg(payload):
 
 @socketio.on('ask_ai')
 def handle_ai(payload):
-    ans = call_ai_text(payload.get('text'))
+    ans = ask_gemini(payload.get('text'))
     emit('new_message', {'from_id': 'ai', 'text': ans, 'time': datetime.now().strftime('%H:%M')}, broadcast=True)
 
 @socketio.on('load_history')
