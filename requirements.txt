@@ -4,5 +4,3 @@ flask_cors
 gunicorn
 eventlet
 requests
-
-
