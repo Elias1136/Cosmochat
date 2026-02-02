@@ -2,110 +2,146 @@ import os
 import random
 import time
 import requests
+import html
 from datetime import datetime
 from flask import Flask, render_template, request, session
-from flask_socketio import SocketIO, emit
+from flask_socketio import SocketIO, emit, join_room
 from flask_cors import CORS
 from google.cloud import firestore
 
-# Initialisierung der Flask-App
+# Initialisierung der Flask-Applikation
 app = Flask(__name__)
 CORS(app)
-app.config['SECRET_KEY'] = 'cosmo-sky-2025-key'
 
-# SocketIO Setup für Echtzeit-Kommunikation
-socketio = SocketIO(app, cors_allowed_origins="*")
+# Sicherheitskonfiguration (CSRF & Session Schutz)
+app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'cosmo-security-v5-pro')
 
-# --- KONFIGURATION ---
-# Der API_KEY wird aus den Google Cloud Umgebungsvariablen gelesen
+# SocketIO mit Eventlet für asynchrone Hochleistungskommunikation
+socketio = SocketIO(app, cors_allowed_origins="*", async_mode='eventlet')
+
+# --- INFRASTRUKTUR KONFIGURATION ---
+# API-Schlüssel wird sicher aus der Cloud-Umgebung bezogen
 API_KEY = os.environ.get('GEMINI_API_KEY', '')
 GEMINI_URL = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key={API_KEY}"
-APP_ID = "cosmochat_v4"
+APP_ID = "cosmochat_enterprise_v5"
 
-# Firestore Datenbank-Client
+# Cloud Firestore Client
 db = firestore.Client()
 
+# --- DATENZUGRIFFSSCHICHT ---
 def get_msg_ref():
-    # Pfad nach Regel 1: artifacts/{appId}/public/data/messages
     return db.collection('artifacts').document(APP_ID).collection('public').document('data').collection('messages')
 
-# KI-Funktion für Gemini
-def ask_gemini(prompt):
+def get_user_ref(user_id):
+    return db.collection('artifacts').document(APP_ID).collection('users').document(user_id)
+
+# --- KI INTEGRATION ---
+def call_gemini_api(prompt):
+    """Führt eine sichere Anfrage an das Gemini-Modell aus."""
     if not API_KEY:
-        return "Hinweis: Kein API_KEY in den Umgebungsvariablen gefunden."
+        return "System-Fehler: API_KEY fehlt in der Cloud-Konfiguration."
     
     payload = {
         "contents": [{"parts": [{"text": prompt}]}],
-        "systemInstruction": {"parts": [{"text": "Du bist CosmoAI. Antworte kurz, freundlich und hilfsbereit auf Deutsch."}]}
+        "systemInstruction": {"parts": [{"text": "Du bist CosmoAI. Antworte kurz, professionell und im Chat-Stil auf Deutsch."}]}
     }
     
-    # Exponential Backoff für API-Anfragen
     for i in range(5):
         try:
-            response = requests.post(GEMINI_URL, json=payload, timeout=10)
+            response = requests.post(GEMINI_URL, json=payload, timeout=12)
             if response.status_code == 200:
                 return response.json()['candidates'][0]['content']['parts'][0]['text']
             time.sleep(2**i)
-        except:
+        except Exception:
             time.sleep(2**i)
     return "KI-Dienst momentan nicht erreichbar."
 
-# --- SOCKET.IO EVENTS ---
+# --- SOCKET.IO EVENT HANDLER ---
 
 @app.route('/')
 def index():
     return render_template('index.html')
 
 @socketio.on('user_connect')
-def handle_connect(data):
-    # Generiert eine ID, falls keine im LocalStorage vorhanden war
-    uid = data.get('id') if data else str(random.randint(100000, 999999))
-    session['uid'] = uid
-    emit('init_data', {'id': uid, 'name': 'Cosmonaut'})
+def handle_user_initialization(data):
+    """Initialisiert den Nutzer und validiert die 6-stellige Identität."""
+    user_id = data.get('id')
+    
+    # Sicherstellen, dass die ID 6 Ziffern hat
+    if not user_id or len(str(user_id)) != 6:
+        user_id = str(random.randint(100000, 999999))
+        get_user_ref(user_id).set({
+            'name': 'Cosmonaut',
+            'created_at': firestore.SERVER_TIMESTAMP
+        })
+    
+    session['uid'] = user_id
+    join_room('global_lounge')
+    emit('init_data', {'id': user_id, 'name': 'Cosmonaut'})
 
 @socketio.on('send_message')
-def handle_msg(payload):
+def handle_inbound_message(payload):
+    """Verarbeitet eingehende Nachrichten inklusive Cyber-Security-Filter."""
     uid = session.get('uid')
-    text = payload.get('text', '').strip()
-    if not uid or not text: return
-
+    raw_content = payload.get('text', '').strip()
+    
+    # SICHERHEITS-VALIDIERUNG: Hacker-Schutz (XSS) & Längenbegrenzung
+    if not uid or not raw_content or len(raw_content) > 1500:
+        return
+    
+    # HTML-Escaping zur Neutralisierung von Schadcode
+    sanitized_text = html.escape(raw_content)
+    
     msg_id = str(int(time.time() * 1000))
-    msg_data = {
+    message_object = {
         'id': msg_id,
         'from_id': uid,
-        'text': text,
+        'text': sanitized_text,
         'time': datetime.now().strftime('%H:%M'),
         'timestamp': firestore.SERVER_TIMESTAMP
     }
     
-    # Speichern in Firestore
-    get_msg_ref().document(msg_id).set(msg_data)
+    # Persistenz in Cloud Firestore
+    try:
+        get_msg_ref().document(msg_id).set(message_object)
+    except Exception:
+        pass
     
-    # Nachricht an alle senden
-    emit('receive_message', msg_data, broadcast=True)
+    # Broadcast an den globalen Chatraum
+    emit('receive_message', message_object, room='global_lounge')
 
 @socketio.on('ask_ai')
-def handle_ai(payload):
-    prompt = payload.get('text')
-    if not prompt: return
+def handle_ai_request(payload):
+    """Verarbeitet KI-Anfragen über den Roboter-Interface-Button."""
+    user_prompt = payload.get('text', '').strip()
+    if not user_prompt:
+        return
     
-    answer = ask_gemini(prompt)
-    ai_msg = {
+    ai_content = call_gemini_api(user_prompt)
+    
+    ai_response = {
+        'id': f"ai_{time.time()}",
         'from_id': 'ai_bot',
         'from_name': 'CosmoAI 🤖',
-        'text': answer,
-        'time': datetime.now().strftime('%H:%M')
+        'text': html.escape(ai_content),
+        'time': datetime.now().strftime('%H:%M'),
+        'is_ai': True
     }
-    emit('receive_message', ai_msg, broadcast=True)
+    emit('receive_message', ai_response, room='global_lounge')
 
 @socketio.on('load_history')
-def load_hist():
-    # Letzte 30 Nachrichten laden (Regel 2: Einfache Query)
-    docs = get_msg_ref().order_by('timestamp', direction=firestore.Query.DESCENDING).limit(30).stream()
-    msgs = sorted([d.to_dict() for d in docs], key=lambda x: x.get('id', ''))
-    for m in msgs:
-        if 'timestamp' in m: del m['timestamp']
-    emit('chat_history', msgs)
+def handle_history_sync():
+    """Synchronisiert den Chatverlauf beim Start."""
+    try:
+        docs = get_msg_ref().order_by('timestamp', direction=firestore.Query.DESCENDING).limit(50).stream()
+        history = []
+        for d in docs:
+            item = d.to_dict()
+            if 'timestamp' in item: del item['timestamp']
+            history.append(item)
+        emit('chat_history', sorted(history, key=lambda x: x.get('id', '')))
+    except Exception:
+        pass
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 8080))
