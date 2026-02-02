@@ -296,6 +296,10 @@
 
     <!-- JAVASCRIPT LOGIC -->
     <script>
+        // --- 0. KONFIGURATION ---
+        // HIER DEINEN API KEY EINFÜGEN:
+        const GEMINI_API_KEY = ""; 
+
         // --- 1. STATE MANAGEMENT ---
         const state = {
             user: { id: null, name: 'Anonym' },
@@ -620,16 +624,47 @@
 
             if(state.currentChatId === 'gemini') {
                 showTypingIndicator();
-                setTimeout(async () => {
-                    removeTypingIndicator();
-                    let responseText = "";
-                    if(text.toLowerCase().startsWith('/image') || text.toLowerCase().includes('bild')) {
-                        responseText = "Ich würde hier ein Bild generieren, wenn der API Key konfiguriert wäre. 🖼️ [Simuliertes Bild]";
-                    } else {
-                        responseText = "Das ist eine simulierte Antwort von Gemini. Um echte KI zu nutzen, muss das Backend mit Google Cloud verbunden werden.";
+                
+                // --- GEMINI API INTEGRATION ---
+                if (GEMINI_API_KEY) {
+                    try {
+                        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({
+                                contents: [{ parts: [{ text: text }] }]
+                            })
+                        });
+                        
+                        const data = await response.json();
+                        removeTypingIndicator();
+
+                        if (data.candidates && data.candidates[0].content) {
+                            const reply = data.candidates[0].content.parts[0].text;
+                             appendMessage({ sender: 'ai', text: reply, type: 'text' });
+                        } else {
+                             appendMessage({ sender: 'ai', text: "Fehler: Konnte keine Antwort generieren.", type: 'text' });
+                        }
+
+                    } catch (error) {
+                        removeTypingIndicator();
+                        console.error("Gemini Error:", error);
+                        appendMessage({ sender: 'ai', text: "Verbindungsfehler zur AI.", type: 'text' });
                     }
-                    appendMessage({ sender: 'ai', text: responseText, type: 'text' });
-                }, 1500);
+                } else {
+                    // Fallback Simulation
+                    setTimeout(async () => {
+                        removeTypingIndicator();
+                        let responseText = "";
+                        if(text.toLowerCase().startsWith('/image') || text.toLowerCase().includes('bild')) {
+                            responseText = "Ich würde hier ein Bild generieren, wenn der API Key konfiguriert wäre. 🖼️ [Simuliertes Bild]";
+                        } else {
+                            responseText = "Das ist eine simulierte Antwort von Gemini. Um echte KI zu nutzen, trage deinen API Key im Code ein.";
+                        }
+                        appendMessage({ sender: 'ai', text: responseText, type: 'text' });
+                    }, 1500);
+                }
+
             } 
             else if (state.isGeminiMode) {
                 toggleAIMode(false);
