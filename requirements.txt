@@ -1,6 +1,7 @@
-flask
+Flask
 flask_socketio
 flask_cors
 gunicorn
 eventlet
 requests
+google-cloud-firestore
