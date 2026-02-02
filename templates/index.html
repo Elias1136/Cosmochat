@@ -48,7 +48,6 @@
             margin: 10px;
         }
 
-        /* --- GEÄNDERT: Das "Paramount-Weltraum"-Intro (v8) --- */
         #intro-overlay {
             position: fixed;
             top: 0;
@@ -61,59 +60,10 @@
             justify-content: center;
             align-items: center;
             z-index: 1000;
-            transition: opacity 1s ease-out 0.5s;
+            transition: opacity 0.5s ease-out;
             overflow: hidden;
-            perspective: 1000px;
         }
         
-        #star-field {
-            position: absolute;
-            top: -50%;
-            left: -50%;
-            width: 200%;
-            height: 200%;
-            /* Erzeugt hunderte "Sterne" (Punkte) */
-            background-image: radial-gradient(white 0.5px, transparent 0.6px);
-            background-size: 30px 30px;
-            animation: move-stars 120s linear infinite;
-            z-index: 1001;
-        }
-        @keyframes move-stars {
-            from { transform: translate(0, 0); }
-            to { transform: translate(250px, 100px); }
-        }
-        
-        /* Der Planet (unser "Berg") */
-        #intro-planet {
-            width: 150px;
-            height: 150px;
-            z-index: 1002;
-            margin-bottom: 20px; /* Platz für den Titel unten */
-            border-radius: 50%;
-            background: radial-gradient(circle at 30% 30%, #a0e6ff, #0077c2 60%, #032a4d 100%);
-            box-shadow: 0 0 25px #a0e6ff, inset 0 0 10px rgba(0,0,0,0.5);
-            position: relative;
-            animation: spin-planet-slow 40s linear infinite;
-        }
-        /* Die Ringe */
-        #intro-planet::before {
-            content: '';
-            position: absolute;
-            top: 50%;
-            left: -20%;
-            width: 140%;
-            height: 6px;
-            background: rgba(160, 230, 255, 0.7);
-            border-radius: 50%;
-            transform: translateY(-50%) rotate(-30deg);
-            box-shadow: 0 0 15px #a0e6ff;
-        }
-        @keyframes spin-planet-slow {
-            from { transform: rotate(0deg); }
-            to { transform: rotate(360deg); }
-        }
-
-        /* Der Titel unter dem Planeten */
         #intro-title {
             font-family: "Arial Black", "Impact", sans-serif;
             font-size: 3.5rem;
@@ -121,116 +71,37 @@
             z-index: 1002;
             color: var(--text);
             text-shadow: 0 0 10px var(--accent), 0 0 20px var(--accent);
-            /* Startet unsichtbar */
-            opacity: 0;
-            transform: translateY(20px);
-            transition: opacity 1s ease-out 1.5s, transform 1s ease-out 1.5s;
+            margin-bottom: 30px;
         }
-        
-        /* Die Sterne (22 Stück, wie bei Paramount) */
-        .intro-star {
-            position: absolute;
-            width: 8px;
-            height: 8px;
-            background: white;
+
+        .splash-spinner {
+            width: 50px;
+            height: 50px;
+            border: 5px solid rgba(255, 255, 255, 0.3);
+            border-top-color: var(--accent);
             border-radius: 50%;
-            box-shadow: 0 0 15px white, 0 0 5px white;
-            z-index: 1003;
-            /* Startet in der Mitte, unsichtbar */
-            left: 50%;
-            top: 40%; /* Startet hinter dem Planeten */
-            opacity: 0;
-            transform: scale(0);
-        }
-        
-        /* Animation für die Sterne */
-        @keyframes fly-in-star {
-            0% {
-                transform: translate(0, 0) scale(0);
-                opacity: 0;
-            }
-            70% {
-                opacity: 1;
-            }
-            100% {
-                /* Endposition (wird pro Stern gesetzt) */
-                transform: var(--transform-end) scale(1);
-                opacity: 1;
-            }
-        }
-        
-        /* Animation wird durch JS ausgelöst */
-        #intro-overlay.animating .intro-star {
-            animation: fly-in-star 1.5s cubic-bezier(0.18, 0.89, 0.32, 1.28) forwards;
-        }
-        #intro-overlay.animating #intro-title {
-            opacity: 1;
-            transform: translateY(0);
-        }
-
-        /* --- Manuelle Positionen für alle 22 Sterne im Bogen --- */
-        /* Linke Seite */
-        .star-1 { --transform-end: translate(-180px, 40px); animation-delay: 0.1s; }
-        .star-2 { --transform-end: translate(-175px, 20px); animation-delay: 0.15s; }
-        .star-3 { --transform-end: translate(-168px, 0px); animation-delay: 0.2s; }
-        .star-4 { --transform-end: translate(-155px, -18px); animation-delay: 0.25s; }
-        .star-5 { --transform-end: translate(-140px, -35px); animation-delay: 0.3s; }
-        .star-6 { --transform-end: translate(-122px, -50px); animation-delay: 0.35s; }
-        .star-7 { --transform-end: translate(-102px, -62px); animation-delay: 0.4s; }
-        .star-8 { --transform-end: translate(-80px, -72px); animation-delay: 0.45s; }
-        .star-9 { --transform-end: translate(-58px, -80px); animation-delay: 0.5s; }
-        .star-10 { --transform-end: translate(-35px, -85px); animation-delay: 0.55s; }
-        /* Mitte */
-        .star-11 { --transform-end: translate(0px, -88px); animation-delay: 0.6s; }
-        /* Rechte Seite */
-        .star-12 { --transform-end: translate(35px, -85px); animation-delay: 0.65s; }
-        .star-13 { --transform-end: translate(58px, -80px); animation-delay: 0.7s; }
-        .star-14 { --transform-end: translate(80px, -72px); animation-delay: 0.75s; }
-        .star-15 { --transform-end: translate(102px, -62px); animation-delay: 0.8s; }
-        .star-16 { --transform-end: translate(122px, -50px); animation-delay: 0.85s; }
-        .star-17 { --transform-end: translate(140px, -35px); animation-delay: 0.9s; }
-        .star-18 { --transform-end: translate(155px, -18px); animation-delay: 0.95s; }
-        .star-19 { --transform-end: translate(168px, 0px); animation-delay: 1s; }
-        .star-20 { --transform-end: translate(175px, 20px); animation-delay: 1.05s; }
-        .star-21 { --transform-end: translate(180px, 40px); animation-delay: 1.1s; }
-        .star-22 { --transform-end: translate(182px, 60px); animation-delay: 1.15s; } /* Extra Stern */
-        
-
-        #start-intro-btn {
-            font-size: 1.5rem;
-            padding: 15px 30px;
-            background: var(--accent);
-            color: black;
-            border: none;
-            border-radius: 12px;
-            font-weight: bold;
-            cursor: pointer;
-            transition: 0.2s;
+            animation: spin 1s linear infinite;
             z-index: 1002;
         }
-        #start-intro-btn:hover {
-            transform: scale(1.05);
-            box-shadow: 0 0 15px var(--accent);
-        }
-        
-        /* --- ENDE Intro-Stile v8 --- */
 
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
 
         #app-container {
-            display: none; /* NEU: App ist anfangs versteckt */
+            display: none;
             width: 100vw;
             max-width: none;
             height: 100vh;
             margin: 0;
-            background: var(--chat-bg);
+            background: var(--bg1);
             border: none;
             border-radius: 0;
-            box-shadow: 0 0 20px rgba(0, 255, 136, 0.3);
+            box-shadow: none;
             overflow: hidden;
             position: relative; 
         }
 
-        /* --- Linke Spalte (Sidebar) --- */
         #sidebar {
             width: 100%;
             height: 100%;
@@ -286,7 +157,6 @@
             overflow-y: auto;
             text-align: left;
             margin-top: 15px;
-            /* GEÄNDERT: Großer Abstand für Handy-Navigation */
             padding-bottom: 70px;
             box-sizing: border-box;
         }
@@ -360,7 +230,6 @@
             box-shadow: none;
         }
 
-        /* --- Rechte Spalte (Chat) --- */
         #chat-view {
             width: 100%;
             height: 100%;
@@ -372,6 +241,7 @@
             transition: transform 0.3s ease-in-out;
             transform: translateX(100%); 
             box-sizing: border-box;
+            background: var(--bg1);
         }
         .mobile-chat-active #sidebar {
             transform: translateX(-100%);
@@ -395,6 +265,7 @@
             align-items: center;
             z-index: 5; 
             padding-left: 0;
+            background: var(--bg3);
         }
         #back-to-sidebar-btn {
             display: inline-block;
@@ -631,41 +502,9 @@
         /* --- ENDE WOLKEN-DESIGN --- */
 
         @media (max-width: 700px) {
-            /* Schriftgröße für Handy-Intro anpassen */
-            #intro-planet {
-                width: 100px;
-                height: 100px;
-            }
-            #intro-planet::before {
-                height: 4px;
-            }
             #intro-title {
                 font-size: 2.5rem;
             }
-            /* Sternenpositionen für Handy anpassen */
-            .star-1 { --transform-end: translate(-120px, 30px); }
-            .star-2 { --transform-end: translate(-115px, 15px); }
-            .star-3 { --transform-end: translate(-110px, 0px); }
-            .star-4 { --transform-end: translate(-100px, -12px); }
-            .star-5 { --transform-end: translate(-88px, -23px); }
-            .star-6 { --transform-end: translate(-75px, -33px); }
-            .star-7 { --transform-end: translate(-60px, -42px); }
-            .star-8 { --transform-end: translate(-45px, -49px); }
-            .star-9 { --transform-end: translate(-30px, -54px); }
-            .star-10 { --transform-end: translate(-15px, -57px); }
-            .star-11 { --transform-end: translate(0px, -58px); }
-            .star-12 { --transform-end: translate(15px, -57px); }
-            .star-13 { --transform-end: translate(30px, -54px); }
-            .star-14 { --transform-end: translate(45px, -49px); }
-            .star-15 { --transform-end: translate(60px, -42px); }
-            .star-16 { --transform-end: translate(75px, -33px); }
-            .star-17 { --transform-end: translate(88px, -23px); }
-            .star-18 { --transform-end: translate(100px, -12px); }
-            .star-19 { --transform-end: translate(110px, 0px); }
-            .star-20 { --transform-end: translate(115px, 15px); }
-            .star-21 { --transform-end: translate(120px, 30px); }
-            .star-22 { --transform-end: translate(122px, 45px); }
-            
             .msg { max-width: 90%; }
         }
 
@@ -673,46 +512,13 @@
 </head>
 <body>
 
-    <!-- GEÄNDERT: Intro-Overlay (v8 - Paramount-Stil) -->
     <div id="intro-overlay">
-        <div id="star-field"></div>
-        
-        <!-- Der majestätische Planet in der Mitte -->
-        <div id="intro-planet"></div>
-        
-        <!-- Der Titel, der unten erscheint -->
         <div id="intro-title">COSMOCHAT</div>
-        
-        <!-- Die 22 Sterne, die den Bogen bilden -->
-        <span class="intro-star star-1"></span>
-        <span class="intro-star star-2"></span>
-        <span class="intro-star star-3"></span>
-        <span class="intro-star star-4"></span>
-        <span class="intro-star star-5"></span>
-        <span class="intro-star star-6"></span>
-        <span class="intro-star star-7"></span>
-        <span class="intro-star star-8"></span>
-        <span class="intro-star star-9"></span>
-        <span class="intro-star star-10"></span>
-        <span class="intro-star star-11"></span>
-        <span class="intro-star star-12"></span>
-        <span class="intro-star star-13"></span>
-        <span class="intro-star star-14"></span>
-        <span class="intro-star star-15"></span>
-        <span class="intro-star star-16"></span>
-        <span class="intro-star star-17"></span>
-        <span class="intro-star star-18"></span>
-        <span class="intro-star star-19"></span>
-        <span class="intro-star star-20"></span>
-        <span class="intro-star star-21"></span>
-        <span class="intro-star star-22"></span>
-        
-        <button id="start-intro-btn">Start</button>
+        <div class="splash-spinner"></div>
     </div>
 
     <button id="mode-toggle" onclick="toggleMode()">🌙</button>
 
-    <!-- NEU: Die App-Container ist anfangs versteckt -->
     <div id="app-container" style="display: none;">
         <div id="sidebar">
             <h1>CosmoChat</h1>
@@ -741,7 +547,6 @@
             </div>
 
             <div id="chat-header">
-                <!-- Der "Zurück"-Knopf wird hier von JS eingefügt -->
                 <span id="chat-friend-name">...</span>
             </div>
             
@@ -770,7 +575,6 @@
         </div>
     </div>
 
-    <!-- Modale (unverändert) -->
     <div id="delete-modal" class="modal-overlay">
         <div class="modal-content">
             <h3>Freund wirklich löschen?</h3>
@@ -799,7 +603,6 @@
 
 
     <script>
-        // --- Globale Variablen ---
         const socket = io(); 
         let myId = localStorage.getItem('cosmochat_id');
         let myName = 'User';
@@ -816,9 +619,7 @@
         let rainInterval = null;
         const rainChars = ['字', '雨', '码', 'ア', 'イ', 'ウ', 'ケ', 'コ', 'サ', 'シ', 'ス', 'タ', 'チ', 'ツ', 'テ', 'ト', 'ナ'];
 
-        // --- DOM Elemente ---
         const introOverlay = document.getElementById('intro-overlay');
-        const startIntroBtn = document.getElementById('start-intro-btn');
         const introTitle = document.getElementById('intro-title');
         
         const appContainer = document.getElementById('app-container');
@@ -848,87 +649,24 @@
         const sendButton = document.getElementById('send-msg-btn');
         const cancelEditButton = document.getElementById('cancel-edit-btn');
 
-
-        // --- GEÄNDERT: "Paramount-Weltraum"-Intro-Logik (v8) ---
-        
-        // 1. Definiere die neuen "legendären" Sounds
-        
-        // Ein "Whoosh"-Sound für die heranfliegenden Sterne
-        const starWhoosh = new Tone.NoiseSynth({
-            noise: { type: 'white' },
-            envelope: { attack: 0.1, decay: 1.0, sustain: 0, release: 0.5 }
-        }).toDestination();
-        const whooshFilter = new Tone.AutoFilter("2n").toDestination();
-        whooshFilter.filter.type = 'lowpass';
-        whooshFilter.baseFrequency = 400;
-        whooshFilter.octaves = 5;
-        starWhoosh.connect(whooshFilter);
-        starWhoosh.volume.value = -15;
-
-        // Die "Fanfare" (ein majestätischer Akkord)
-        const fanfare = new Tone.PolySynth(Tone.Synth, {
-            oscillator: { type: 'fatsawtooth', count: 3, spread: 30 },
-            envelope: { attack: 0.1, decay: 1.5, sustain: 0.5, release: 2.0 }
-        }).toDestination();
-        fanfare.volume.value = -6;
-        
-        // Die aufsteigende Melodie
-        const fanfareMelody = new Tone.Synth({
-            oscillator: { type: 'triangle' },
-            envelope: { attack: 0.01, decay: 0.5, sustain: 0.1, release: 0.8 }
-        }).toDestination();
-        fanfareMelody.volume.value = -3;
-
-
-        // 2. Event-Listener für den Start-Knopf
-        startIntroBtn.onclick = async () => {
-            // 1. Audio für den Browser "aufwecken"
-            await Tone.start();
-            
-            // 2. Start-Knopf ausblenden
-            startIntroBtn.style.display = 'none';
-            
-            // 3. Animation und Sounds starten
-            whooshFilter.start();
-            starWhoosh.triggerAttack();
-            
-            // CSS-Klasse hinzufügen, um die Animation zu starten
-            introOverlay.classList.add('animating');
-
-            // 4. Fanfare planen
-            const now = Tone.now();
-            // Starte den Hauptakkord (C-Dur)
-            fanfare.triggerAttackRelease(['C4', 'E4', 'G4', 'C5'], '3s', now + 1.0);
-            
-            // Spiele die aufsteigende Melodie
-            fanfareMelody.triggerAttackRelease('C5', '0.3s', now + 1.5);
-            fanfareMelody.triggerAttackRelease('G5', '0.3s', now + 1.8);
-            fanfareMelody.triggerAttackRelease('C6', '1s', now + 2.1);
-            
-            // 5. Nach der Animation das Intro ausblenden
-            const animationTime = 3500; // 3.5s (länger für die Fanfare)
-            
-            setTimeout(() => {
-                // Intro ausblenden lassen
-                introOverlay.style.opacity = '0';
-                
-                setTimeout(() => {
-                    introOverlay.style.display = 'none';
-                    appContainer.style.display = 'flex'; // App anzeigen!
-                    // Socket-Verbindung erst jetzt starten
-                    socket.emit('user_connect', { id: myId }); 
-                }, 1000); // Warte auf das Ausblenden
-
-            }, animationTime);
-        };
-        
-        // --- Socket Events ---
         socket.on('connect', () => {
-            console.log('Verbunden! Warte auf Intro-Start...');
-            // HINWEIS: 'user_connect' wird jetzt erst nach dem Intro gesendet
+            console.log('Verbunden! Sende User-Daten...');
+            Tone.start().then(() => {
+                socket.emit('user_connect', { id: myId }); 
+            }).catch(() => {
+                socket.emit('user_connect', { id: myId });
+            });
         });
         
         socket.on('init_data', (data) => {
+            if (introOverlay) {
+                introOverlay.style.opacity = '0';
+                setTimeout(() => {
+                    introOverlay.style.display = 'none';
+                    appContainer.style.display = 'flex'; 
+                }, 500); 
+            }
+
             myId = data.id;
             localStorage.setItem('cosmochat_id', myId);
             myName = data.name;
@@ -983,7 +721,6 @@
                 }
             }
         });
-        
         socket.on('message_edited', (data) => {
             if (data.room === currentRoom) {
                 const msgElement = document.querySelector(`.msg[data-msg-id="${data.msg_id}"]`);
@@ -1006,7 +743,6 @@
                 }
             }
         });
-        
         socket.on('messages_seen', (data) => {
             if (data.room === currentRoom) {
                 document.querySelectorAll('.seen-status.sent').forEach(icon => {
@@ -1062,7 +798,6 @@
             }
         });
         
-        // --- Regen-Funktionen ---
         function startRaining() {
             if (rainInterval) {
                 stopRaining();
@@ -1091,7 +826,6 @@
             }
         }
 
-        // --- UI-Funktionen ---
         function toggleMode() {
             document.body.classList.toggle('light-mode');
             const isLight = document.body.classList.contains('light-mode');
@@ -1236,7 +970,6 @@
             messageOptionsModal.style.display = 'none';
         };
         
-        // --- Hilfsfunktionen ---
         function updateRequestsList(requests) {
             requestsList.innerHTML = '';
             requests.forEach(req => {
