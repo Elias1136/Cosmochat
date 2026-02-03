@@ -298,7 +298,7 @@
     <script>
         // --- 0. KONFIGURATION ---
         // HIER DEINEN API KEY EINFÜGEN:
-        const GEMINI_API_KEY = ""; 
+        const GEMINI_API_KEY = "AIzaSyBJKSAz-0KZ4MOalGMHBSV2O6yNFonUIrQ"; 
 
         // --- 1. STATE MANAGEMENT ---
         const state = {
@@ -306,7 +306,8 @@
             friends: [], 
             requests: [],
             currentChatId: null,
-            isGeminiMode: false
+            isGeminiMode: false,
+            currentTab: 'friends' // Neu: Status für aktiven Tab
         };
 
         // --- 2. AUDIO SYSTEM ---
@@ -391,11 +392,27 @@
             }
         }
 
-        // --- 4. DATA LOGIC ---
+        // --- 4. DATA LOGIC & TAB SWITCHING ---
+        // Neue Funktion für das Umschalten der Tabs
+        function switchTab(tab) {
+            state.currentTab = tab;
+            const tabFriends = document.getElementById('tabFriends');
+            const tabRequests = document.getElementById('tabRequests');
+            
+            if(tab === 'friends') {
+                tabFriends.className = "flex-1 pb-3 text-sm font-medium text-blue-400 border-b-2 border-blue-400 transition";
+                tabRequests.className = "flex-1 pb-3 text-sm font-medium text-slate-500 hover:text-slate-300 transition relative";
+            } else {
+                tabFriends.className = "flex-1 pb-3 text-sm font-medium text-slate-500 hover:text-slate-300 transition";
+                tabRequests.className = "flex-1 pb-3 text-sm font-medium text-blue-400 border-b-2 border-blue-400 transition relative";
+            }
+            renderList();
+        }
+
         function loadFriends() {
             const saved = localStorage.getItem('globe_friends');
             if(saved) state.friends = JSON.parse(saved);
-            renderFriendsList();
+            renderList();
         }
 
         function addFriend() {
@@ -409,41 +426,62 @@
             state.friends.push(newFriend);
             localStorage.setItem('globe_friends', JSON.stringify(state.friends));
             document.getElementById('addFriendInput').value = '';
-            renderFriendsList();
+            renderList();
         }
 
-        function renderFriendsList() {
+        // Umbenannt zu renderList, da sie nun beide Tabs verwaltet
+        function renderList() {
             const list = document.getElementById('friendsList');
             list.innerHTML = '';
 
-            state.friends.forEach(friend => {
-                const el = document.createElement('div');
-                el.className = `p-3 flex items-center gap-3 rounded-xl cursor-pointer transition hover:bg-slate-800 ${state.currentChatId === friend.id ? 'bg-slate-800 border-l-4 border-blue-500' : 'border-l-4 border-transparent'}`;
-                el.onclick = () => openChat(friend.id);
-                el.innerHTML = `
-                    <div class="w-10 h-10 rounded-full bg-slate-700 flex items-center justify-center text-white font-bold">${friend.name[0]}</div>
-                    <div class="flex-1 min-w-0">
-                        <div class="flex justify-between">
-                            <h4 class="text-slate-200 font-medium truncate">${friend.name}</h4>
-                            <button onclick="event.stopPropagation(); deleteFriend('${friend.id}')" class="text-slate-600 hover:text-red-500 text-xs"><i class="fa-solid fa-trash"></i></button>
-                        </div>
-                        <p class="text-xs text-slate-500 truncate">Klicken zum Chatten</p>
-                    </div>
+            if (state.currentTab === 'friends') {
+                // Gemini immer im Freunde Tab anzeigen
+                const geminiEl = document.createElement('div');
+                geminiEl.className = "mt-4 p-3 flex items-center gap-3 rounded-xl cursor-pointer hover:bg-purple-900/20 border border-purple-500/20 mb-2";
+                geminiEl.onclick = () => openGeminiChat();
+                geminiEl.innerHTML = `
+                     <div class="w-10 h-10 rounded-full bg-gradient-to-br from-purple-500 to-indigo-500 flex items-center justify-center text-white"><i class="fa-solid fa-robot"></i></div>
+                     <div class="flex-1">
+                        <h4 class="text-purple-300 font-bold">Gemini AI</h4>
+                        <p class="text-xs text-purple-400/60">Immer bereit zu helfen</p>
+                     </div>
                 `;
-                list.appendChild(el);
-            });
+                list.appendChild(geminiEl);
 
-            const geminiEl = document.createElement('div');
-            geminiEl.className = "mt-4 p-3 flex items-center gap-3 rounded-xl cursor-pointer hover:bg-purple-900/20 border border-purple-500/20";
-            geminiEl.onclick = () => openGeminiChat();
-            geminiEl.innerHTML = `
-                 <div class="w-10 h-10 rounded-full bg-gradient-to-br from-purple-500 to-indigo-500 flex items-center justify-center text-white"><i class="fa-solid fa-robot"></i></div>
-                 <div class="flex-1">
-                    <h4 class="text-purple-300 font-bold">Gemini AI</h4>
-                    <p class="text-xs text-purple-400/60">Immer bereit zu helfen</p>
-                 </div>
-            `;
-            list.prepend(geminiEl);
+                if (state.friends.length === 0) {
+                     const empty = document.createElement('div');
+                     empty.className = "p-8 text-center text-slate-600 text-sm";
+                     empty.innerHTML = `<i class="fa-solid fa-users-slash text-2xl mb-2 opacity-50"></i><br>Noch keine Freunde.<br>Teile deine ID!`;
+                     list.appendChild(empty);
+                } else {
+                    state.friends.forEach(friend => {
+                        const el = document.createElement('div');
+                        el.className = `p-3 flex items-center gap-3 rounded-xl cursor-pointer transition hover:bg-slate-800 ${state.currentChatId === friend.id ? 'bg-slate-800 border-l-4 border-blue-500' : 'border-l-4 border-transparent'}`;
+                        el.onclick = () => openChat(friend.id);
+                        el.innerHTML = `
+                            <div class="w-10 h-10 rounded-full bg-slate-700 flex items-center justify-center text-white font-bold">${friend.name[0]}</div>
+                            <div class="flex-1 min-w-0">
+                                <div class="flex justify-between">
+                                    <h4 class="text-slate-200 font-medium truncate">${friend.name}</h4>
+                                    <button onclick="event.stopPropagation(); deleteFriend('${friend.id}')" class="text-slate-600 hover:text-red-500 text-xs"><i class="fa-solid fa-trash"></i></button>
+                                </div>
+                                <p class="text-xs text-slate-500 truncate">Klicken zum Chatten</p>
+                            </div>
+                        `;
+                        list.appendChild(el);
+                    });
+                }
+            } else if (state.currentTab === 'requests') {
+                // Logik für Anfragen-Tab
+                if (state.requests.length === 0) {
+                     const empty = document.createElement('div');
+                     empty.className = "p-8 text-center text-slate-600 text-sm";
+                     empty.innerHTML = `<i class="fa-solid fa-inbox text-2xl mb-2 opacity-50"></i><br>Keine offenen Anfragen.`;
+                     list.appendChild(empty);
+                } else {
+                    // Hier würden Anfragen stehen, wenn wir ein Backend hätten
+                }
+            }
         }
 
         function deleteFriend(id) {
@@ -455,7 +493,7 @@
                     document.getElementById('emptyChatState').classList.remove('hidden');
                     state.currentChatId = null;
                 }
-                renderFriendsList();
+                renderList();
             }
         }
 
@@ -477,7 +515,7 @@
             document.getElementById('chatHeaderAvatar').style.background = '#334155';
 
             renderMessages(friend.messages);
-            renderFriendsList();
+            renderList();
             
             if(window.innerWidth < 768) {
                 document.querySelector('.w-full.md\\:w-\\[380px\\]').classList.add('hidden');
